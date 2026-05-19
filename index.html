@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="My Fit Lab"/>
@@ -36,8 +36,51 @@
   --mono:'DM Mono',monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
-html,body{background:var(--bg);overscroll-behavior:none;font-family:var(--font);color:var(--text);}
-input,textarea,button,select{font-family:var(--font);}
+html{
+  /* Prevent iOS font size adjustment on orientation change */
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+html,body{
+  background:var(--bg);
+  overscroll-behavior:none;
+  /* Prevent bounce scroll on iOS */
+  overscroll-behavior-y:none;
+  font-family:var(--font);
+  color:var(--text);
+  /* Fix iOS momentum scroll */
+  -webkit-overflow-scrolling:touch;
+  /* Prevent double-tap zoom */
+  touch-action:manipulation;
+  /* Safe area for notch/home indicator handled by bottom nav */
+  height:100%;
+}
+/* CRITICAL: font-size 16px minimum on ALL inputs prevents iOS auto-zoom */
+input,textarea,select{
+  font-family:var(--font);
+  font-size:16px !important;
+  /* Prevent iOS adding rounded corners / inner shadow */
+  -webkit-appearance:none;
+  appearance:none;
+  border-radius:0;
+}
+button{
+  font-family:var(--font);
+  /* Prevent iOS styling buttons */
+  -webkit-appearance:none;
+  /* Better touch target feedback */
+  touch-action:manipulation;
+}
+/* Prevent text selection on UI elements */
+button,label{
+  -webkit-user-select:none;
+  user-select:none;
+}
+/* Allow text selection in inputs/content */
+input,textarea,p,div{
+  -webkit-user-select:auto;
+  user-select:auto;
+}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 ::-webkit-scrollbar{display:none;}
 select{-webkit-appearance:none;appearance:none;}
@@ -2322,7 +2365,7 @@ function App(){
       </div>
 
       {/* Bottom Nav */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"rgba(8,11,20,0.97)",backdropFilter:"blur(28px)",borderTop:"1px solid var(--border)",display:"flex",padding:"8px 0 16px",zIndex:50}}>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"rgba(8,11,20,0.97)",backdropFilter:"blur(28px)",borderTop:"1px solid var(--border)",display:"flex",paddingTop:8,paddingLeft:0,paddingRight:0,paddingBottom:"max(14px, env(safe-area-inset-bottom))",zIndex:50}}>
         {NAV.map(n=>(
           <button key={n.id} onClick={()=>setPage(n.id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 1px",color:page===n.id?"var(--green)":"var(--text3)",transition:"color 0.2s",fontFamily:"var(--font)"}}>
             <span style={{fontSize:page===n.id?19:16,transition:"all 0.2s",filter:page===n.id?"drop-shadow(0 0 6px rgba(168,255,120,0.6))":"none"}}>{n.i}</span>
