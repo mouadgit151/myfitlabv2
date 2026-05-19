@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="My Fit Lab"/>
 <title>My Fit Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.2/babel.min.js"></script>
@@ -32,7 +32,7 @@
   --text:rgba(255,255,255,0.92);
   --text2:rgba(255,255,255,0.5);
   --text3:rgba(255,255,255,0.28);
-  --font:'Syne',sans-serif;
+  --font:'DM Sans',sans-serif;
   --mono:'DM Mono',monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
@@ -100,30 +100,66 @@ function formatDateLong(k){return new Date(k+"T12:00:00").toLocaleDateString("fr
 function formatDateFull(k){return new Date(k+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
 
 // ═══════════════════════════════════════════════
-// PROGRAMS — Tes 4 splits
+// PROGRAMS — Default splits (stored in Supabase, editable)
 // ═══════════════════════════════════════════════
-const PROGRAMS = [
+const DEFAULT_PROGRAMS = [
   {
     id:"back_tri", label:"Back & Triceps", emoji:"💪", color:"#00e5ff",
-    muscles:["Back","Triceps"],
+    muscleTag:"Back & Triceps",
     exercises:["Deadlift","Lat Pulldown","Barbell Row","Seated Cable Row","Dumbbell Row","Straight Arm Pulldown","Tricep Pushdown","Skull Crusher","Overhead Tricep Extension","Rope Pushdown","Close Grip Bench Press"]
   },
   {
     id:"bi_chest", label:"Biceps & Chest", emoji:"🏋️", color:"#a8ff78",
-    muscles:["Biceps","Chest"],
+    muscleTag:"Biceps & Chest",
     exercises:["Bench Press","Incline Bench Press","Dumbbell Press","Incline Dumbbell Press","Chest Fly","Cable Fly","Pec Deck","Barbell Curl","Dumbbell Curl","Hammer Curl","Preacher Curl","Incline Dumbbell Curl","EZ Bar Curl"]
   },
   {
     id:"leg_sho_abs", label:"Legs · Shoulders · Abs", emoji:"🦵", color:"#ff9f5a",
-    muscles:["Quadriceps","Hamstrings","Glutes","Calves","Shoulders","Abs"],
+    muscleTag:"Legs · Shoulders · Abs",
     exercises:["Squat","Leg Press","Romanian Deadlift","Leg Curl","Leg Extension","Hip Thrust","Standing Calf Raise","Seated Calf Raise","Overhead Press","Lateral Raise","Face Pull","Rear Delt Fly","Crunch","Hanging Leg Raise","Ab Wheel Rollout","Plank"]
   },
   {
     id:"bonus", label:"Bonus — Abs · Shoulders · Calves", emoji:"⚡", color:"#c084fc",
-    muscles:["Abs","Shoulders","Calves"],
+    muscleTag:"Abs · Shoulders · Calves",
     exercises:["Crunch","Cable Crunch","Hanging Leg Raise","Ab Wheel Rollout","Russian Twist","Plank","Lateral Raise","Face Pull","Rear Delt Fly","Arnold Press","Standing Calf Raise","Seated Calf Raise","Calf Press"]
   },
 ];
+
+// Muscle tag suggestions for programs
+const MUSCLE_TAG_SUGGESTIONS = [
+  "Back & Triceps","Biceps & Chest","Legs · Shoulders · Abs","Abs · Shoulders · Calves",
+  "Upper Body","Lower Body","Full Body","Arms","Push","Pull","Legs","Core",
+];
+
+// ═══════════════════════════════════════════════
+// CARDIO
+// ═══════════════════════════════════════════════
+const CARDIO_TYPES = [
+  {id:"walk",      label:"Marche",          emoji:"🚶", met:3.5,  fields:[]},
+  {id:"walk_inc",  label:"Marche inclinée", emoji:"⛰️",  met:5.0,  fields:["speed","incline"]},
+  {id:"run",       label:"Course",          emoji:"🏃", met:9.0,  fields:["speed"]},
+  {id:"bike",      label:"Vélo",            emoji:"🚴", met:7.0,  fields:["speed","resistance"]},
+];
+
+// Estimate kcal for cardio (MET formula: kcal = MET × weight_kg × hours)
+function estimateCardioKcal(type, durationMin, weightKg=90){
+  const met=CARDIO_TYPES.find(c=>c.id===type)?.met||5;
+  return Math.round(met * weightKg * (durationMin/60));
+}
+
+// Estimate kcal for HIIT strength session
+// HIIT at max effort: ~8-10 kcal/min + EPOC bonus ~20%
+// 2 heavy sets per exercise, max reps = high intensity
+function estimateStrengthKcal(exercises, weightKg=90){
+  if(!exercises||exercises.length===0) return 0;
+  const totalSets=exercises.reduce((s,ex)=>s+ex.sets.length,0);
+  if(totalSets===0) return 0;
+  // Approx: 0.25 kcal per lb lifted per set + 5 kcal/min rest
+  // For HIIT heavy: ~12 kcal/set average + 2min rest between sets
+  const setKcal=totalSets*12;
+  const restKcal=Math.max(0,totalSets-1)*10; // rest between sets
+  return Math.round((setKcal+restKcal)*1.15); // +15% EPOC
+}
 
 // ═══════════════════════════════════════════════
 // EXERCISE DB — enrichie
@@ -157,18 +193,18 @@ const EXERCISE_DB=[
   {name:"Machine Shoulder Press",muscle:"Shoulders"},{name:"Behind the Neck Press",muscle:"Shoulders"},
   {name:"Lu Raise",muscle:"Shoulders"},{name:"Landmine Lateral Raise",muscle:"Shoulders"},
   // BICEPS
-  {name:"Barbell Curl",muscle:"Biceps"},{name:"EZ Bar Curl",muscle:"Biceps"},
-  {name:"Dumbbell Curl",muscle:"Biceps"},{name:"Hammer Curl",muscle:"Biceps"},
-  {name:"Incline Dumbbell Curl",muscle:"Biceps"},{name:"Preacher Curl",muscle:"Biceps"},
-  {name:"Cable Curl",muscle:"Biceps"},{name:"Concentration Curl",muscle:"Biceps"},
-  {name:"Spider Curl",muscle:"Biceps"},{name:"Cross Body Curl",muscle:"Biceps"},
-  {name:"Reverse Curl",muscle:"Biceps"},{name:"21s",muscle:"Biceps"},
+  {name:"Barbell Curl",muscle:"Biceps",sub:"Both heads"},{name:"EZ Bar Curl",muscle:"Biceps",sub:"Both heads"},
+  {name:"Dumbbell Curl",muscle:"Biceps",sub:"Both heads"},{name:"Hammer Curl",muscle:"Biceps",sub:"Brachialis"},
+  {name:"Incline Dumbbell Curl",muscle:"Biceps",sub:"Long Head"},{name:"Preacher Curl",muscle:"Biceps",sub:"Short Head"},
+  {name:"Cable Curl",muscle:"Biceps",sub:"Both heads"},{name:"Concentration Curl",muscle:"Biceps",sub:"Short Head"},
+  {name:"Spider Curl",muscle:"Biceps",sub:"Short Head"},{name:"Cross Body Curl",muscle:"Biceps",sub:"Brachialis"},
+  {name:"Reverse Curl",muscle:"Biceps",sub:"Brachioradialis"},{name:"21s",muscle:"Biceps",sub:"Both heads"},
   // TRICEPS
-  {name:"Tricep Pushdown",muscle:"Triceps"},{name:"Rope Pushdown",muscle:"Triceps"},
-  {name:"Overhead Tricep Extension",muscle:"Triceps"},{name:"Skull Crusher",muscle:"Triceps"},
-  {name:"Close Grip Bench Press",muscle:"Triceps"},{name:"Tricep Dips",muscle:"Triceps"},
-  {name:"Dumbbell Kickback",muscle:"Triceps"},{name:"Cable Overhead Extension",muscle:"Triceps"},
-  {name:"JM Press",muscle:"Triceps"},{name:"Diamond Push-Up",muscle:"Triceps"},
+  {name:"Tricep Pushdown",muscle:"Triceps",sub:"Lateral + Medial"},{name:"Rope Pushdown",muscle:"Triceps",sub:"Lateral + Medial"},
+  {name:"Overhead Tricep Extension",muscle:"Triceps",sub:"Long Head"},{name:"Skull Crusher",muscle:"Triceps",sub:"Long + Lateral"},
+  {name:"Close Grip Bench Press",muscle:"Triceps",sub:"Long + Lateral"},{name:"Tricep Dips",muscle:"Triceps",sub:"All 3 heads"},
+  {name:"Dumbbell Kickback",muscle:"Triceps",sub:"Long Head"},{name:"Cable Overhead Extension",muscle:"Triceps",sub:"Long Head"},
+  {name:"JM Press",muscle:"Triceps",sub:"Long + Lateral"},{name:"Diamond Push-Up",muscle:"Triceps",sub:"Lateral + Medial"},
   // FOREARMS
   {name:"Wrist Curl",muscle:"Forearms"},{name:"Reverse Wrist Curl",muscle:"Forearms"},
   {name:"Farmer's Carry",muscle:"Forearms"},{name:"Plate Pinch",muscle:"Forearms"},
@@ -1032,17 +1068,19 @@ function HomePage({log,setPage,profile,updateLog,dailyLogs,exStats}){
         ))}
       </div>
 
-      {/* Supplements quick view */}
-      <GlassCard style={{marginBottom:16,padding:"14px 16px"}} onClick={()=>setPage("nutrition")}>
+      {/* Supplements quick view — clickable directly */}
+      <GlassCard style={{marginBottom:16,padding:"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <span style={{fontWeight:700,fontSize:13}}>💊 Suppléments</span>
           <Tag color={supps===4?"var(--green)":"var(--text3)"}>{supps}/4 ✓</Tag>
         </div>
         <div style={{display:"flex",gap:8}}>
           {[{id:"vitC",l:"Vit. C",e:"🟠"},{id:"vitD",l:"Vit. D",e:"🟡"},{id:"omega3",l:"Ω-3",e:"🔵"},{id:"magnesium",l:"Mg",e:"🟣"}].map(s=>(
-            <div key={s.id} style={{flex:1,textAlign:"center",padding:"8px 4px",background:log.supplements?.[s.id]?"rgba(168,255,120,0.1)":"rgba(255,255,255,0.03)",borderRadius:12,border:`1px solid ${log.supplements?.[s.id]?"rgba(168,255,120,0.4)":"var(--border)"}`}}>
+            <div key={s.id} onClick={()=>updateLog(todayKey(),l=>({...l,supplements:{...l.supplements,[s.id]:!l.supplements?.[s.id]}}))}
+              style={{flex:1,textAlign:"center",padding:"8px 4px",background:log.supplements?.[s.id]?"rgba(168,255,120,0.1)":"rgba(255,255,255,0.03)",borderRadius:12,border:`1px solid ${log.supplements?.[s.id]?"rgba(168,255,120,0.4)":"var(--border)"}`,cursor:"pointer",transition:"all 0.2s"}}>
               <div style={{fontSize:16}}>{s.e}</div>
               <div style={{fontSize:8,color:log.supplements?.[s.id]?"var(--green)":"var(--text3)",fontWeight:700,marginTop:2}}>{s.l}</div>
+              {log.supplements?.[s.id]&&<div style={{fontSize:8,color:"var(--green)"}}>✓</div>}
             </div>
           ))}
         </div>
@@ -1365,14 +1403,28 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
 // ═══════════════════════════════════════════════
 // EXERCISE PAGE
 // ═══════════════════════════════════════════════
-function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExStats}){
+function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExStats,programs,setPrograms,profile}){
+  const [tab,setTab]=useState("workout"); // "workout" | "programs" | "cardio"
   const [exSearch,setExSearch]=useState("");
-  const [customName,setCustomName]=useState("");
   const [expanded,setExpanded]=useState(null);
   const [showSugg,setShowSugg]=useState(false);
-  const [showPrograms,setShowPrograms]=useState(false);
+  // Custom exercise modal
+  const [showCustomModal,setShowCustomModal]=useState(false);
+  const [customForm,setCustomForm]=useState({name:"",muscle:"",sub:""});
+  // Program editor
+  const [editingProg,setEditingProg]=useState(null); // null | program object
+  const [progExSearch,setProgExSearch]=useState("");
+  // Cardio
+  const [cardioType,setCardioType]=useState("walk");
+  const [cardioDuration,setCardioDuration]=useState("");
+  const [cardioSpeed,setCardioSpeed]=useState("");
+  const [cardioIncline,setCardioIncline]=useState("");
+  const [cardioResistance,setCardioResistance]=useState("");
+
   const exercises=log.exercises||[];
+  const cardioLog=log.cardioLog||[];
   const isToday=selectedDay===todayKey();
+  const weightKg=profile?.weight||90;
 
   function searchEx(q){
     if(!q) return [];
@@ -1383,22 +1435,41 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
     return [...muscleExact,...muscleStart,...nameMatch].slice(0,14);
   }
   const suggestions=searchEx(exSearch);
+  const progSuggestions=searchEx(progExSearch);
 
-  function addExercise(name,muscle){
+  function addExercise(name,muscle,sub,isCustom=false){
     const id=Date.now();
-    updateLog(selectedDay,l=>({...l,exercises:[...(l.exercises||[]),{id,name,muscle:muscle||"",sets:[],note:"",unit:"lbs"}]}));
-    setExSearch("");setCustomName("");setShowSugg(false);setExpanded(id);
+    updateLog(selectedDay,l=>({...l,exercises:[...(l.exercises||[]),{id,name,muscle:muscle||"",sub:sub||"",sets:[],note:"",unit:"lbs",isCustom}]}));
+    setExSearch("");setShowSugg(false);setExpanded(id);
   }
-  function addCustom(){if(customName.trim()) addExercise(customName.trim(),"");}
+  function addCustomExercise(){
+    if(!customForm.name.trim()) return;
+    addExercise(customForm.name.trim(),customForm.muscle,customForm.sub,true);
+    setCustomForm({name:"",muscle:"",sub:""});
+    setShowCustomModal(false);
+  }
 
   function loadProgram(prog){
     const newExercises=prog.exercises.map((name,i)=>{
       const dbEx=EXERCISE_DB.find(e=>e.name===name);
-      return {id:Date.now()+i,name,muscle:dbEx?.muscle||"",sets:[],note:"",unit:"lbs"};
+      return {id:Date.now()+i,name,muscle:dbEx?.muscle||"",sub:dbEx?.sub||"",sets:[],note:"",unit:"lbs",isCustom:false};
     });
     updateLog(selectedDay,l=>({...l,exercises:[...(l.exercises||[]),...newExercises],isSportDay:true}));
-    setShowPrograms(false);
   }
+
+  // Program editor helpers
+  function startEditProg(prog){setEditingProg(JSON.parse(JSON.stringify(prog)));setProgExSearch("");}
+  function saveEditProg(){
+    if(!editingProg) return;
+    setPrograms(prev=>prev.map(p=>p.id===editingProg.id?editingProg:p));
+    setEditingProg(null);
+  }
+  function addExToProg(name){
+    if(!editingProg||editingProg.exercises.includes(name)) return;
+    setEditingProg(p=>({...p,exercises:[...p.exercises,name]}));
+    setProgExSearch("");
+  }
+  function removeExFromProg(name){setEditingProg(p=>({...p,exercises:p.exercises.filter(e=>e!==name)}));}
 
   function addSet(id){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,sets:[...ex.sets,{reps:"",weight:""}]}:ex)}));}
   function updateSet(id,si,f,v){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,sets:ex.sets.map((s,i)=>i===si?{...s,[f]:v}:s)}:ex)}));}
@@ -1406,8 +1477,18 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
   function deleteEx(id){updateLog(selectedDay,l=>({...l,exercises:l.exercises.filter(ex=>ex.id!==id)}));if(expanded===id)setExpanded(null);}
   function updateNote(id,note){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,note}:ex)}));}
   function toggleUnit(id){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,unit:ex.unit==="kg"?"lbs":"kg"}:ex)}));}
+  function updateExField(id,field,val){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,[field]:val}:ex)}));}
 
-  // PRs from exStats
+  function addCardio(){
+    if(!cardioDuration) return;
+    const ct=CARDIO_TYPES.find(c=>c.id===cardioType);
+    const kcal=estimateCardioKcal(cardioType,parseFloat(cardioDuration),weightKg);
+    const entry={id:Date.now(),type:cardioType,label:ct.label,emoji:ct.emoji,duration:parseFloat(cardioDuration),speed:cardioSpeed,incline:cardioIncline,resistance:cardioResistance,kcal};
+    updateLog(selectedDay,l=>({...l,cardioLog:[...(l.cardioLog||[]),entry]}));
+    setCardioDuration("");setCardioSpeed("");setCardioIncline("");setCardioResistance("");
+  }
+  function removeCardio(id){updateLog(selectedDay,l=>({...l,cardioLog:(l.cardioLog||[]).filter(c=>c.id!==id)}));}
+
   function getPR(name){
     const stats=exStats.filter(s=>s.exercise_name===name);
     if(stats.length===0) return null;
@@ -1417,63 +1498,71 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
     const stats=exStats.filter(s=>s.exercise_name===name&&s.date!==selectedDay).sort((a,b)=>b.date.localeCompare(a.date));
     return stats[0]||null;
   }
-
-  // Save stats when exercise is complete (on collapse)
   function handleCollapse(ex){
     if(expanded===ex.id){
       setExpanded(null);
-      // Save stats
       const unit=ex.unit||"lbs";
       const maxW=Math.max(...ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}),0);
       const vol=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
       if(maxW>0) saveExStats({exercise_name:ex.name,date:selectedDay,max_weight:maxW,total_volume:vol,sets_data:ex.sets});
-    } else {
-      setExpanded(ex.id);
-    }
+    } else setExpanded(ex.id);
   }
 
-  return(
+  const estimatedKcal=estimateStrengthKcal(exercises,weightKg);
+  const totalCardioKcal=cardioLog.reduce((s,c)=>s+c.kcal,0);
+  const ct=CARDIO_TYPES.find(c=>c.id===cardioType);
+
+  // ── Program editor modal ──
+  if(editingProg) return(
     <div style={{padding:"20px 20px 0"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <h2 style={{fontWeight:800,fontSize:22,margin:0}}>🏋️ Exercices</h2>
-        <button onClick={()=>setShowPicker(true)} style={{background:"var(--glass)",border:"1px solid var(--border2)",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,color:"var(--text2)",cursor:"pointer",fontFamily:"var(--font)"}}>📅 {isToday?"Aujourd'hui":formatDate(selectedDay)} ▾</button>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <button onClick={()=>setEditingProg(null)} style={{background:"var(--glass)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text)",padding:"8px 14px",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"var(--font)"}}>← Annuler</button>
+        <h3 style={{margin:0,fontWeight:800,fontSize:17,flex:1}}>{editingProg.emoji} {editingProg.label}</h3>
+        <button onClick={saveEditProg} style={{background:"var(--green)",border:"none",borderRadius:12,color:"#080b14",padding:"8px 16px",cursor:"pointer",fontWeight:800,fontSize:13,fontFamily:"var(--font)"}}>✓ Sauver</button>
       </div>
 
-      <RestTimer/>
+      {/* Muscle tag */}
+      <GlassCard style={{marginBottom:14,padding:14}}>
+        <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>🏷 Tag musculaire</div>
+        <input value={editingProg.muscleTag||""} onChange={e=>setEditingProg(p=>({...p,muscleTag:e.target.value}))}
+          placeholder="Ex: Back & Triceps, Upper Body, Full Body…"
+          style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)",marginBottom:8}}/>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {MUSCLE_TAG_SUGGESTIONS.map(tag=>(
+            <button key={tag} onClick={()=>setEditingProg(p=>({...p,muscleTag:tag}))} style={{padding:"4px 10px",borderRadius:20,border:`1px solid ${editingProg.muscleTag===tag?"var(--green)":"var(--border)"}`,background:editingProg.muscleTag===tag?"rgba(168,255,120,0.12)":"transparent",color:editingProg.muscleTag===tag?"var(--green)":"var(--text3)",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)"}}>{tag}</button>
+          ))}
+        </div>
+      </GlassCard>
 
-      {/* Programs */}
-      <div style={{marginBottom:12}}>
-        <button onClick={()=>setShowPrograms(!showPrograms)} style={{width:"100%",background:"linear-gradient(135deg,rgba(0,229,255,0.08),rgba(168,255,120,0.05))",border:"1px solid rgba(0,229,255,0.2)",borderRadius:16,padding:"12px 16px",color:"var(--cyan)",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"var(--font)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span>📋 Programmes prédéfinis</span>
-          <span>{showPrograms?"▾":"▸"}</span>
-        </button>
-        {showPrograms&&(
-          <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:8,animation:"fadeUp 0.2s ease"}}>
-            {PROGRAMS.map(prog=>(
-              <div key={prog.id} style={{background:"var(--glass)",border:`1px solid ${prog.color}33`,borderRadius:16,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:6}}><span>{prog.emoji}</span>{prog.label}</div>
-                  <div style={{fontSize:11,color:"var(--text3)",marginTop:3}}>{prog.exercises.length} exercices · {prog.muscles.join(", ")}</div>
-                </div>
-                <button onClick={()=>loadProgram(prog)} style={{background:`${prog.color}18`,border:`1px solid ${prog.color}44`,borderRadius:10,padding:"7px 14px",color:prog.color,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"var(--font)",whiteSpace:"nowrap"}}>+ Charger</button>
+      {/* Current exercises */}
+      <GlassCard style={{marginBottom:14,padding:14}}>
+        <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>Exercices ({editingProg.exercises.length})</div>
+        {editingProg.exercises.map((name,i)=>{
+          const dbEx=EXERCISE_DB.find(e=>e.name===name);
+          return(
+            <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid var(--border)"}}>
+              <div>
+                <span style={{fontSize:12,fontWeight:600}}>{name}</span>
+                {dbEx?.muscle&&<span style={{fontSize:10,color:"var(--text3)",marginLeft:6}}>{dbEx.muscle}{dbEx.sub?` · ${dbEx.sub}`:""}</span>}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <button onClick={()=>removeExFromProg(name)} style={{background:"rgba(255,95,109,0.1)",border:"none",borderRadius:6,color:"var(--red)",width:24,height:24,cursor:"pointer",fontSize:13}}>✕</button>
+            </div>
+          );
+        })}
+      </GlassCard>
 
-      {/* Search */}
+      {/* Add exercise to program */}
       <div style={{position:"relative",marginBottom:8}}>
-        <input value={exSearch} onChange={e=>{setExSearch(e.target.value);setShowSugg(true);}} onFocus={()=>setShowSugg(true)}
-          placeholder="Chercher exercice ou muscle (ex: back, chest)…"
-          style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:14,padding:"12px 16px",color:"var(--text)",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
-        {showSugg&&suggestions.length>0&&(
-          <div style={{position:"absolute",top:"100%",left:0,right:0,background:"var(--bg2)",borderRadius:14,border:"1px solid var(--border)",zIndex:10,maxHeight:240,overflowY:"auto",marginTop:4,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
-            {suggestions.map((ex,i)=>(
-              <div key={i} onClick={()=>addExercise(ex.name,ex.muscle)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",transition:"background 0.1s"}}>
+        <input value={progExSearch} onChange={e=>setProgExSearch(e.target.value)}
+          placeholder="Ajouter un exercice au programme…"
+          style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:12,padding:"11px 14px",color:"var(--text)",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
+        {progExSearch&&progSuggestions.length>0&&(
+          <div style={{position:"absolute",top:"100%",left:0,right:0,background:"var(--bg2)",borderRadius:12,border:"1px solid var(--border)",zIndex:10,maxHeight:200,overflowY:"auto",marginTop:4}}>
+            {progSuggestions.map((ex,i)=>(
+              <div key={i} onClick={()=>addExToProg(ex.name)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:editingProg.exercises.includes(ex.name)?0.4:1}}>
                 <div>
                   <span style={{fontSize:13,fontWeight:600}}>{ex.name}</span>
-                  {getPR(ex.name)&&<span style={{fontSize:10,color:"var(--yellow)",marginLeft:8,fontFamily:"var(--mono)"}}>PR: {getPR(ex.name).toFixed(0)} lbs</span>}
+                  {ex.sub&&<span style={{fontSize:10,color:"var(--text3)",marginLeft:6}}>{ex.sub}</span>}
                 </div>
                 <Tag color={MUSCLE_GROUPS[ex.muscle]?.color||"var(--text3)"}>{ex.muscle}</Tag>
               </div>
@@ -1481,88 +1570,265 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
           </div>
         )}
       </div>
-      <div style={{display:"flex",gap:8,marginBottom:20}}>
-        <input value={customName} onChange={e=>setCustomName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCustom()}
-          placeholder="Exercice personnalisé…"
-          style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:12,padding:"10px 14px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"var(--font)"}}/>
-        <button onClick={addCustom} className="btn-green" style={{padding:"10px 18px",borderRadius:12,fontSize:13,whiteSpace:"nowrap"}}>+ Ajouter</button>
+    </div>
+  );
+
+  // ── Custom exercise modal ──
+  if(showCustomModal) return(
+    <div style={{padding:"20px 20px 0"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+        <button onClick={()=>setShowCustomModal(false)} style={{background:"var(--glass)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text)",padding:"8px 14px",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"var(--font)"}}>← Retour</button>
+        <h3 style={{margin:0,fontWeight:800,fontSize:17}}>✏️ Exercice personnalisé</h3>
+      </div>
+      <GlassCard style={{padding:16}}>
+        {[{k:"name",l:"Nom de l'exercice *",p:"Ex: Incline Smith Press"},{k:"muscle",l:"Groupe musculaire",p:"Ex: Chest, Back, Biceps…"},{k:"sub",l:"Partie du muscle (optionnel)",p:"Ex: Long Head, Short Head, Lateral…"}].map(f=>(
+          <div key={f.k} style={{marginBottom:12}}>
+            <label style={{fontSize:10,fontWeight:700,color:"var(--text3)",textTransform:"uppercase",letterSpacing:0.5}}>{f.l}</label>
+            <input value={customForm[f.k]} onChange={e=>setCustomForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
+              style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"10px 12px",color:"var(--text)",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
+          </div>
+        ))}
+        <div style={{background:"rgba(168,255,120,0.06)",border:"1px solid rgba(168,255,120,0.15)",borderRadius:10,padding:"8px 12px",marginBottom:14,fontSize:11,color:"var(--text3)"}}>
+          💡 Cet exercice sera marqué <span style={{color:"var(--green)",fontWeight:700}}>Custom</span> pour le distinguer des exercices de la base de données
+        </div>
+        <button onClick={addCustomExercise} disabled={!customForm.name.trim()} style={{width:"100%",background:customForm.name.trim()?"var(--green)":"rgba(168,255,120,0.3)",border:"none",borderRadius:12,padding:"12px",fontWeight:800,fontSize:14,color:"#080b14",cursor:"pointer",fontFamily:"var(--font)"}}>+ Ajouter à la séance</button>
+      </GlassCard>
+    </div>
+  );
+
+  return(
+    <div style={{padding:"20px 20px 0"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <h2 style={{fontWeight:800,fontSize:22,margin:0}}>🏋️ Exercices</h2>
+        <button onClick={()=>setShowPicker(true)} style={{background:"var(--glass)",border:"1px solid var(--border2)",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,color:"var(--text2)",cursor:"pointer",fontFamily:"var(--font)"}}>📅 {isToday?"Aujourd'hui":formatDate(selectedDay)} ▾</button>
       </div>
 
-      {exercises.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:14,padding:"40px 0"}}>{isToday?"🏋️ Lance ta séance !":"Aucun exercice ce jour-là"}</div>}
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:6,marginBottom:14,background:"rgba(255,255,255,0.04)",borderRadius:14,padding:4}}>
+        {[["workout","🏋️ Séance"],["programs","📋 Programmes"],["cardio","🏃 Cardio"]].map(([t,l])=>(
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"8px 4px",border:"none",borderRadius:10,fontWeight:700,fontSize:12,cursor:"pointer",background:tab===t?"var(--green)":"transparent",color:tab===t?"#080b14":"var(--text2)",transition:"all 0.2s",fontFamily:"var(--font)"}}>{l}</button>
+        ))}
+      </div>
 
-      {exercises.map(ex=>{
-        const unit=ex.unit||"lbs";
-        const totalVol=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
-        const maxW=Math.max(...ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}),0);
-        const pr=getPR(ex.name);
-        const isNewPR=maxW>0&&(!pr||maxW>pr);
-        const last=getLastSession(ex.name);
-        const muscleColor=MUSCLE_GROUPS[ex.muscle]?.color||"var(--text3)";
-        return(
-          <div key={ex.id} style={{background:"var(--glass)",border:`1px solid ${expanded===ex.id?"rgba(168,255,120,0.2)":"var(--border)"}`,borderRadius:20,marginBottom:12,overflow:"hidden",transition:"all 0.2s"}}>
-            <div style={{display:"flex",alignItems:"center",padding:"14px 16px",cursor:"pointer",gap:10}} onClick={()=>handleCollapse(ex)}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:14,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                  {ex.name}
-                  {isNewPR&&<span style={{fontSize:9,background:"rgba(255,209,102,0.2)",color:"var(--yellow)",border:"1px solid rgba(255,209,102,0.4)",borderRadius:8,padding:"1px 6px",fontFamily:"var(--mono)"}}>🏆 NEW PR</span>}
-                </div>
-                <div style={{fontSize:11,color:"var(--text3)",display:"flex",gap:8,marginTop:2,flexWrap:"wrap",fontFamily:"var(--mono)"}}>
-                  {ex.muscle&&<Tag color={muscleColor}>{ex.muscle}</Tag>}
-                  <span>{ex.sets.length} série(s) · {ex.sets.reduce((s,st)=>s+(parseInt(st.reps)||0),0)} reps</span>
-                  {totalVol>0&&<span style={{color:"var(--green)"}}>· {Math.round(totalVol)} lbs vol.</span>}
-                </div>
-                {pr&&!isNewPR&&<div style={{fontSize:10,color:"var(--yellow)",marginTop:2,fontFamily:"var(--mono)"}}>PR actuel: {pr.toFixed(0)} lbs</div>}
-                {last&&<div style={{fontSize:10,color:"var(--text3)",marginTop:1,fontFamily:"var(--mono)"}}>Dernière fois: {formatDate(last.date)} · max {(last.max_weight||0).toFixed(0)} lbs</div>}
-              </div>
-              <div onClick={e=>{e.stopPropagation();toggleUnit(ex.id);}} style={{background:unit==="kg"?"rgba(255,209,102,0.12)":"rgba(0,229,255,0.1)",border:`1px solid ${unit==="kg"?"rgba(255,209,102,0.3)":"rgba(0,229,255,0.2)"}`,borderRadius:10,padding:"4px 10px",fontSize:10,fontWeight:700,color:unit==="kg"?"var(--yellow)":"var(--cyan)",cursor:"pointer",fontFamily:"var(--mono)"}}>{unit.toUpperCase()}</div>
-              <span style={{fontSize:16,color:"var(--text3)"}}>{expanded===ex.id?"▾":"▸"}</span>
-              <button onClick={e=>{e.stopPropagation();deleteEx(ex.id);}} style={{background:"rgba(255,95,109,0.1)",border:"none",borderRadius:8,color:"var(--red)",padding:"5px 9px",cursor:"pointer",fontSize:12}}>✕</button>
+      {/* ── WORKOUT TAB ── */}
+      {tab==="workout"&&<>
+        <RestTimer/>
+
+        {/* Calorie estimate */}
+        {(estimatedKcal>0||totalCardioKcal>0)&&(
+          <GlassCard style={{marginBottom:12,padding:"12px 14px",display:"flex",gap:10,alignItems:"center"}}>
+            <span style={{fontSize:20}}>🔥</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--text2)"}}>Calories brûlées estimées</div>
+              <div style={{fontSize:10,color:"var(--text3)"}}>Musculation HIIT + Cardio</div>
             </div>
-            {expanded===ex.id&&(
-              <div style={{padding:"0 16px 16px",borderTop:"1px solid var(--border)"}}>
-                <div style={{display:"flex",gap:6,fontSize:9,color:"var(--text3)",fontWeight:700,marginBottom:8,marginTop:12,textTransform:"uppercase",letterSpacing:0.5,fontFamily:"var(--mono)"}}>
-                  <div style={{width:44}}>SÉRIE</div><div style={{flex:1}}>REPS</div><div style={{flex:1}}>POIDS ({unit})</div><div style={{width:28}}></div>
-                </div>
-                {ex.sets.map((set,si)=>{
-                  const w=parseFloat(set.weight)||0;
-                  const lbsNote=w&&unit==="kg"?` = ${(w*KG_TO_LBS).toFixed(1)} lbs`:"";
-                  const setVol=(parseInt(set.reps)||0)*(unit==="kg"?w*KG_TO_LBS:w);
-                  return(
-                    <div key={si} style={{marginBottom:8}}>
-                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                        <div style={{width:44,fontSize:12,color:"var(--green)",fontWeight:700,fontFamily:"var(--mono)"}}>S{si+1}</div>
-                        <input value={set.reps} onChange={e=>updateSet(ex.id,si,"reps",e.target.value)} placeholder="10"
-                          style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 10px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"var(--mono)"}}/>
-                        <input value={set.weight} onChange={e=>updateSet(ex.id,si,"weight",e.target.value)} placeholder={unit}
-                          style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 10px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"var(--mono)"}}/>
-                        <button onClick={()=>deleteSet(ex.id,si)} style={{width:30,height:36,background:"rgba(255,95,109,0.1)",border:"none",borderRadius:8,color:"var(--red)",cursor:"pointer",fontSize:14}}>✕</button>
-                      </div>
-                      <div style={{display:"flex",gap:6,paddingLeft:50,marginTop:2,fontSize:9,color:"var(--text3)",fontFamily:"var(--mono)"}}>
-                        {lbsNote&&<span style={{color:"var(--yellow)"}}>{lbsNote}</span>}
-                        {setVol>0&&<span>vol: {Math.round(setVol)} lbs</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-                <button onClick={()=>addSet(ex.id)} style={{width:"100%",background:"rgba(168,255,120,0.06)",border:"1px dashed rgba(168,255,120,0.2)",borderRadius:10,padding:"10px",color:"var(--green)",cursor:"pointer",fontSize:12,fontWeight:600,marginTop:4,fontFamily:"var(--font)"}}>+ Série</button>
-                {ex.sets.length>0&&(
-                  <div style={{background:"rgba(255,255,255,0.03)",borderRadius:12,padding:"10px 12px",marginTop:12,border:"1px solid var(--border)"}}>
-                    <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Résumé de la série</div>
-                    {ex.sets.map((set,si)=>{
-                      const r=parseInt(set.reps)||0,w=parseFloat(set.weight)||0;
-                      const wLbs=unit==="kg"?w*KG_TO_LBS:w;
-                      return <div key={si} style={{fontSize:11,color:"var(--text2)",marginBottom:2,fontFamily:"var(--mono)"}}>S{si+1}: {r} reps × {wLbs>0?`${wLbs.toFixed(0)} lbs`:"-"}{unit==="kg"&&w?` (${w} kg)`:""}</div>;
-                    })}
-                    {totalVol>0&&<div style={{fontSize:11,color:"var(--green)",fontWeight:700,marginTop:6,borderTop:"1px solid var(--border)",paddingTop:6,fontFamily:"var(--mono)"}}>Volume: {Math.round(totalVol)} lbs · Max: {maxW.toFixed(0)} lbs{isNewPR?" 🏆":""}</div>}
+            <div style={{textAlign:"right"}}>
+              {estimatedKcal>0&&<div style={{fontSize:15,fontWeight:800,color:"var(--orange)",fontFamily:"var(--mono)"}}>{estimatedKcal} kcal 💪</div>}
+              {totalCardioKcal>0&&<div style={{fontSize:13,fontWeight:700,color:"var(--cyan)",fontFamily:"var(--mono)"}}>{totalCardioKcal} kcal 🏃</div>}
+            </div>
+          </GlassCard>
+        )}
+
+        {/* Search */}
+        <div style={{position:"relative",marginBottom:8}}>
+          <input value={exSearch} onChange={e=>{setExSearch(e.target.value);setShowSugg(true);}} onFocus={()=>setShowSugg(true)}
+            placeholder="Chercher exercice ou muscle (ex: back, chest)…"
+            style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:14,padding:"12px 16px",color:"var(--text)",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
+          {showSugg&&suggestions.length>0&&(
+            <div style={{position:"absolute",top:"100%",left:0,right:0,background:"var(--bg2)",borderRadius:14,border:"1px solid var(--border)",zIndex:10,maxHeight:240,overflowY:"auto",marginTop:4,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
+              {suggestions.map((ex,i)=>(
+                <div key={i} onClick={()=>addExercise(ex.name,ex.muscle,ex.sub||"",false)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:600}}>{ex.name}</span>
+                    {ex.sub&&<span style={{fontSize:10,color:"var(--text3)",marginLeft:6}}>· {ex.sub}</span>}
+                    {getPR(ex.name)&&<span style={{fontSize:10,color:"var(--yellow)",marginLeft:8,fontFamily:"var(--mono)"}}>PR: {getPR(ex.name).toFixed(0)} lbs</span>}
                   </div>
-                )}
-                <textarea value={ex.note||""} onChange={e=>updateNote(ex.id,e.target.value)} placeholder="Notes…" rows={2}
-                  style={{width:"100%",background:"rgba(255,255,255,0.03)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",color:"var(--text2)",fontSize:12,resize:"none",marginTop:10,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
+                  <Tag color={MUSCLE_GROUPS[ex.muscle]?.color||"var(--text3)"}>{ex.muscle}</Tag>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <button onClick={()=>setShowCustomModal(true)} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:12,padding:"10px",color:"var(--text3)",cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:16,fontFamily:"var(--font)"}}>✏️ Ajouter un exercice personnalisé</button>
+
+        {exercises.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:14,padding:"30px 0"}}>{isToday?"🏋️ Lance ta séance !":"Aucun exercice ce jour-là"}</div>}
+
+        {exercises.map(ex=>{
+          const unit=ex.unit||"lbs";
+          const totalVol=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
+          const maxW=Math.max(...ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}),0);
+          const pr=getPR(ex.name);
+          const isNewPR=maxW>0&&(!pr||maxW>pr);
+          const last=getLastSession(ex.name);
+          const muscleColor=MUSCLE_GROUPS[ex.muscle]?.color||"var(--text3)";
+          return(
+            <div key={ex.id} style={{background:"var(--glass)",border:`1px solid ${expanded===ex.id?"rgba(168,255,120,0.2)":"var(--border)"}`,borderRadius:20,marginBottom:12,overflow:"visible",transition:"all 0.2s"}}>
+              <div style={{display:"flex",alignItems:"center",padding:"14px 16px",cursor:"pointer",gap:10}} onClick={()=>handleCollapse(ex)}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:14,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    {ex.name}
+                    {ex.isCustom&&<span style={{fontSize:9,background:"rgba(192,132,252,0.15)",color:"var(--purple)",border:"1px solid rgba(192,132,252,0.3)",borderRadius:8,padding:"1px 6px"}}>Custom</span>}
+                    {isNewPR&&<span style={{fontSize:9,background:"rgba(255,209,102,0.15)",color:"var(--yellow)",border:"1px solid rgba(255,209,102,0.3)",borderRadius:8,padding:"1px 6px",fontFamily:"var(--mono)"}}>🏆 NEW PR</span>}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--text3)",display:"flex",gap:6,marginTop:2,flexWrap:"wrap"}}>
+                    {ex.muscle&&<Tag color={muscleColor}>{ex.muscle}{ex.sub?` · ${ex.sub}`:""}</Tag>}
+                    <span style={{fontFamily:"var(--mono)"}}>{ex.sets.length} série(s) · {ex.sets.reduce((s,st)=>s+(parseInt(st.reps)||0),0)} reps</span>
+                    {totalVol>0&&<span style={{color:"var(--green)",fontFamily:"var(--mono)"}}>· {Math.round(totalVol)} lbs</span>}
+                  </div>
+                  {pr&&!isNewPR&&<div style={{fontSize:10,color:"var(--yellow)",marginTop:2,fontFamily:"var(--mono)"}}>PR: {pr.toFixed(0)} lbs</div>}
+                  {last&&<div style={{fontSize:10,color:"var(--text3)",marginTop:1,fontFamily:"var(--mono)"}}>Dernière fois: {formatDate(last.date)} · max {(last.max_weight||0).toFixed(0)} lbs</div>}
+                </div>
+                <div onClick={e=>{e.stopPropagation();toggleUnit(ex.id);}} style={{background:unit==="kg"?"rgba(255,209,102,0.12)":"rgba(0,229,255,0.1)",border:`1px solid ${unit==="kg"?"rgba(255,209,102,0.3)":"rgba(0,229,255,0.2)"}`,borderRadius:10,padding:"4px 10px",fontSize:10,fontWeight:700,color:unit==="kg"?"var(--yellow)":"var(--cyan)",cursor:"pointer",fontFamily:"var(--mono)",flexShrink:0}}>{unit.toUpperCase()}</div>
+                <span style={{fontSize:16,color:"var(--text3)"}}>{expanded===ex.id?"▾":"▸"}</span>
+                <button onClick={e=>{e.stopPropagation();deleteEx(ex.id);}} style={{background:"rgba(255,95,109,0.1)",border:"none",borderRadius:8,color:"var(--red)",padding:"5px 9px",cursor:"pointer",fontSize:12,flexShrink:0}}>✕</button>
+              </div>
+              {expanded===ex.id&&(
+                <div style={{padding:"0 16px 16px",borderTop:"1px solid var(--border)"}}>
+                  {/* Editable muscle/sub for custom exercises */}
+                  {ex.isCustom&&(
+                    <div style={{display:"flex",gap:8,marginTop:12,marginBottom:8}}>
+                      <input value={ex.muscle||""} onChange={e=>updateExField(ex.id,"muscle",e.target.value)} placeholder="Muscle (ex: Chest)"
+                        style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"var(--font)"}}/>
+                      <input value={ex.sub||""} onChange={e=>updateExField(ex.id,"sub",e.target.value)} placeholder="Partie (optionnel)"
+                        style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"var(--font)"}}/>
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:6,fontSize:9,color:"var(--text3)",fontWeight:700,marginBottom:8,marginTop:12,textTransform:"uppercase",letterSpacing:0.5,fontFamily:"var(--mono)"}}>
+                    <div style={{width:44}}>SÉRIE</div><div style={{flex:1}}>REPS</div><div style={{flex:1}}>POIDS ({unit})</div><div style={{width:28}}></div>
+                  </div>
+                  {ex.sets.map((set,si)=>{
+                    const w=parseFloat(set.weight)||0;
+                    const lbsNote=w&&unit==="kg"?` = ${(w*KG_TO_LBS).toFixed(1)} lbs`:"";
+                    return(
+                      <div key={si} style={{marginBottom:8}}>
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          <div style={{width:44,fontSize:12,color:"var(--green)",fontWeight:700,fontFamily:"var(--mono)"}}>S{si+1}</div>
+                          <input value={set.reps} onChange={e=>updateSet(ex.id,si,"reps",e.target.value)} placeholder="10"
+                            style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 10px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"var(--mono)"}}/>
+                          <input value={set.weight} onChange={e=>updateSet(ex.id,si,"weight",e.target.value)} placeholder={unit}
+                            style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 10px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"var(--mono)"}}/>
+                          <button onClick={()=>deleteSet(ex.id,si)} style={{width:30,height:36,background:"rgba(255,95,109,0.1)",border:"none",borderRadius:8,color:"var(--red)",cursor:"pointer",fontSize:14}}>✕</button>
+                        </div>
+                        {lbsNote&&<div style={{fontSize:9,color:"var(--yellow)",paddingLeft:50,marginTop:2,fontFamily:"var(--mono)"}}>{lbsNote}</div>}
+                      </div>
+                    );
+                  })}
+                  <button onClick={()=>addSet(ex.id)} style={{width:"100%",background:"rgba(168,255,120,0.06)",border:"1px dashed rgba(168,255,120,0.2)",borderRadius:10,padding:"10px",color:"var(--green)",cursor:"pointer",fontSize:12,fontWeight:600,marginTop:4,fontFamily:"var(--font)"}}>+ Série</button>
+                  {ex.sets.length>0&&(
+                    <div style={{background:"rgba(255,255,255,0.03)",borderRadius:12,padding:"10px 12px",marginTop:10,border:"1px solid var(--border)"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Résumé</div>
+                      {ex.sets.map((set,si)=>{const r=parseInt(set.reps)||0,w=parseFloat(set.weight)||0;const wLbs=unit==="kg"?w*KG_TO_LBS:w;return <div key={si} style={{fontSize:11,color:"var(--text2)",marginBottom:2,fontFamily:"var(--mono)"}}>S{si+1}: {r} reps × {wLbs>0?`${wLbs.toFixed(0)} lbs`:"-"}{unit==="kg"&&w?` (${w} kg)`:""}</div>;})}
+                      {totalVol>0&&<div style={{fontSize:11,color:"var(--green)",fontWeight:700,marginTop:6,borderTop:"1px solid var(--border)",paddingTop:6,fontFamily:"var(--mono)"}}>Vol: {Math.round(totalVol)} lbs · Max: {maxW.toFixed(0)} lbs{isNewPR?" 🏆":""}</div>}
+                    </div>
+                  )}
+                  <textarea value={ex.note||""} onChange={e=>updateNote(ex.id,e.target.value)} placeholder="Notes…" rows={2}
+                    style={{width:"100%",background:"rgba(255,255,255,0.03)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",color:"var(--text2)",fontSize:12,resize:"none",marginTop:10,outline:"none",boxSizing:"border-box",fontFamily:"var(--font)"}}/>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </>}
+
+      {/* ── PROGRAMS TAB ── */}
+      {tab==="programs"&&<>
+        <div style={{fontSize:12,color:"var(--text3)",marginBottom:14}}>Appuie sur un programme pour le charger dans ta séance. Modifie-le avec ✏️</div>
+        {programs.map(prog=>(
+          <GlassCard key={prog.id} style={{marginBottom:10,padding:"14px 16px",border:`1px solid ${prog.color}22`}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14,display:"flex",alignItems:"center",gap:6}}><span>{prog.emoji}</span>{prog.label}</div>
+                <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{prog.muscleTag||""} · {prog.exercises.length} exercices</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>startEditProg(prog)} style={{background:"var(--glass)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 12px",color:"var(--text2)",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"var(--font)"}}>✏️</button>
+                <button onClick={()=>loadProgram(prog)} style={{background:`${prog.color}18`,border:`1px solid ${prog.color}44`,borderRadius:10,padding:"6px 14px",color:prog.color,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"var(--font)",whiteSpace:"nowrap"}}>+ Charger</button>
+              </div>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {prog.exercises.slice(0,6).map((name,i)=>(
+                <span key={i} style={{fontSize:10,color:"var(--text3)",background:"rgba(255,255,255,0.04)",borderRadius:8,padding:"2px 8px"}}>{name}</span>
+              ))}
+              {prog.exercises.length>6&&<span style={{fontSize:10,color:"var(--text3)",background:"rgba(255,255,255,0.04)",borderRadius:8,padding:"2px 8px"}}>+{prog.exercises.length-6} autres</span>}
+            </div>
+          </GlassCard>
+        ))}
+      </>}
+
+      {/* ── CARDIO TAB ── */}
+      {tab==="cardio"&&<>
+        {/* Type selector */}
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          {CARDIO_TYPES.map(c=>(
+            <button key={c.id} onClick={()=>setCardioType(c.id)} style={{flex:1,padding:"10px 4px",borderRadius:14,border:`2px solid ${cardioType===c.id?"var(--green)":"var(--border)"}`,background:cardioType===c.id?"rgba(168,255,120,0.1)":"var(--glass)",cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.15s"}}>
+              <div style={{fontSize:18}}>{c.emoji}</div>
+              <div style={{fontSize:10,fontWeight:700,color:cardioType===c.id?"var(--green)":"var(--text3)",marginTop:3}}>{c.label}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Inputs */}
+        <GlassCard style={{marginBottom:14,padding:14}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:120}}>
+              <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Durée (min) *</label>
+              <input type="number" value={cardioDuration} onChange={e=>setCardioDuration(e.target.value)} placeholder="30"
+                style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--mono)"}}/>
+            </div>
+            {ct?.fields.includes("speed")&&(
+              <div style={{flex:1,minWidth:100}}>
+                <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Vitesse (km/h)</label>
+                <input type="number" value={cardioSpeed} onChange={e=>setCardioSpeed(e.target.value)} placeholder="5.5"
+                  style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--mono)"}}/>
+              </div>
+            )}
+            {ct?.fields.includes("incline")&&(
+              <div style={{flex:1,minWidth:100}}>
+                <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Inclinaison (%)</label>
+                <input type="number" value={cardioIncline} onChange={e=>setCardioIncline(e.target.value)} placeholder="5"
+                  style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--mono)"}}/>
+              </div>
+            )}
+            {ct?.fields.includes("resistance")&&(
+              <div style={{flex:1,minWidth:100}}>
+                <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Résistance</label>
+                <input type="number" value={cardioResistance} onChange={e=>setCardioResistance(e.target.value)} placeholder="8"
+                  style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--mono)"}}/>
               </div>
             )}
           </div>
-        );
-      })}
+          {cardioDuration&&(
+            <div style={{marginTop:10,fontSize:12,color:"var(--orange)",fontFamily:"var(--mono)"}}>
+              ≈ {estimateCardioKcal(cardioType,parseFloat(cardioDuration),weightKg)} kcal brûlées
+            </div>
+          )}
+          <button onClick={addCardio} disabled={!cardioDuration} style={{marginTop:12,width:"100%",background:cardioDuration?"var(--green)":"rgba(168,255,120,0.3)",border:"none",borderRadius:12,padding:"11px",fontWeight:800,fontSize:14,color:"#080b14",cursor:"pointer",fontFamily:"var(--font)"}}>+ Logger</button>
+        </GlassCard>
+
+        {/* Cardio history for this day */}
+        {cardioLog.length>0&&(
+          <GlassCard style={{padding:14}}>
+            <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>Cardio du jour — {totalCardioKcal} kcal</div>
+            {cardioLog.map(c=>(
+              <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600}}>{c.emoji} {c.label}</div>
+                  <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>
+                    {c.duration} min{c.speed?` · ${c.speed} km/h`:""}
+                    {c.incline?` · ${c.incline}% incl`:""}
+                    {c.resistance?` · résist. ${c.resistance}`:""}
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"var(--orange)",fontFamily:"var(--mono)"}}>{c.kcal} kcal</span>
+                  <button onClick={()=>removeCardio(c.id)} style={{background:"rgba(255,95,109,0.1)",border:"none",borderRadius:6,color:"var(--red)",width:24,height:24,cursor:"pointer",fontSize:13}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </GlassCard>
+        )}
+        {cardioLog.length===0&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:13,padding:"30px 0"}}>🏃 Aucun cardio enregistré aujourd'hui</div>}
+      </>}
     </div>
   );
 }
@@ -1904,6 +2170,7 @@ function App(){
   const [weightHistory,setWeightHistoryState]=useState([{date:todayKey(),weight:94}]);
   const [exStats,setExStatsState]=useState([]);
   const [customFoods,setCustomFoodsState]=useState([]);
+  const [programs,setPrograms]=useState(DEFAULT_PROGRAMS);
   const [selectedDay,setSelectedDay]=useState(todayKey());
   const [showPicker,setShowPicker]=useState(false);
   const [syncing,setSyncing]=useState(false);
@@ -2048,7 +2315,7 @@ function App(){
         {page==="home"&&<HomePage log={todayLog} setPage={setPage} profile={profile} updateLog={updateLog} dailyLogs={dailyLogs} exStats={exStats}/>}
         {page==="nutrition"&&<NutritionPage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} mealPlan={selPlan}/>}
         {page==="tracking"&&<TrackingPage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} customFoods={customFoods}/>}
-        {page==="exercise"&&<ExercisePage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} exStats={exStats} saveExStats={saveExStats}/>}
+        {page==="exercise"&&<ExercisePage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} exStats={exStats} saveExStats={saveExStats} programs={programs} setPrograms={setPrograms} profile={profile}/>}
         {page==="weekly"&&<WeeklyPage dailyLogs={dailyLogs} exStats={exStats} setPage={setPage}/>}
         {page==="history"&&<HistoryPage dailyLogs={dailyLogs} setSelectedDay={setSelectedDay} setPage={setPage} setShowPicker={setShowPicker}/>}
         {page==="profile"&&<ProfilePage profile={profile} setProfile={setProfile} weightHistory={weightHistory} setWeightHistory={setWeightHistory} onSignOut={signOut} userEmail={user.email} exStats={exStats} dailyLogs={dailyLogs}/>}
