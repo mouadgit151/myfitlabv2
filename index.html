@@ -2265,7 +2265,7 @@ function WeeklyPage({dailyLogs,exStats,setPage}){
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:14,fontWeight:800,color:"var(--yellow)",fontFamily:"var(--mono)"}}>{pr.max_weight.toFixed(0)} lbs</div>
-                <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>vol: {Math.round(pr.total_volume)}</div>
+                {(pr.total_volume||0)>0&&<div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>vol: {Math.round(pr.total_volume||0)}</div>}
               </div>
             </div>
           ))}
@@ -2718,6 +2718,13 @@ function App(){
   }
   async function signOut(){await sb.auth.signOut();setUser(null);}
 
+  function getLog(day){return dailyLogs[day]||emptyLog();}
+  const todayLog=getLog(todayKey());
+  const selLog=getLog(selectedDay);
+  // useMemo must be called unconditionally (Rules of Hooks) — placed here before any conditional return
+  const selPlan=useMemo(()=>buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz"),
+    [selLog.isSportDay,selLog.proteinKey,selLog.carbKey]);
+
   if(loading) return(
     <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font)"}}>
       <div style={{textAlign:"center"}}>
@@ -2728,12 +2735,6 @@ function App(){
     </div>
   );
   if(!user) return <AuthScreen onAuth={u=>{setUser(u);loadData(u.id);}}/>;
-
-  function getLog(day){return dailyLogs[day]||emptyLog();}
-  const todayLog=getLog(todayKey());
-  const selLog=getLog(selectedDay);
-  const selPlan=useMemo(()=>buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz"),
-    [selLog.isSportDay,selLog.proteinKey,selLog.carbKey]);
 
   const NAV=[
     {id:"home",l:"Accueil",i:"⬡"},
