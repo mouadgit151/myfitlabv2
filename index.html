@@ -1587,7 +1587,7 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
 // ═══════════════════════════════════════════════
 // EXERCISE PAGE
 // ═══════════════════════════════════════════════
-function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExStats,programs,setPrograms,profile}){
+function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExStats,programs,setPrograms,profile,dailyLogs}){
   const [tab,setTab]=useState("workout"); // "workout" | "programs" | "cardio"
   const [exSearch,setExSearch]=useState("");
   const [expanded,setExpanded]=useState(null);
@@ -1598,12 +1598,14 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
   // Program editor
   const [editingProg,setEditingProg]=useState(null); // null | program object
   const [progExSearch,setProgExSearch]=useState("");
-  // Cardio
+  // Cardio — separate variables per field to avoid cross-contamination between cardio types
   const [cardioType,setCardioType]=useState("walk");
   const [cardioDuration,setCardioDuration]=useState("");
-  const [cardioSpeed,setCardioSpeed]=useState("");
-  const [cardioIncline,setCardioIncline]=useState("");
-  const [cardioResistance,setCardioResistance]=useState("");
+  const [cardioSteps,setCardioSteps]=useState("");       // walk only: number of steps
+  const [cardioDistance,setCardioDistance]=useState(""); // walk only: km
+  const [cardioSpeed,setCardioSpeed]=useState("");       // walk_inc, run, bike: km/h
+  const [cardioIncline,setCardioIncline]=useState("");   // walk_inc: %
+  const [cardioResistance,setCardioResistance]=useState(""); // bike: resistance level
 
   const exercises=log.exercises||[];
   const cardioLog=log.cardioLog||[];
@@ -1664,24 +1666,62 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
   function updateExField(id,field,val){updateLog(selectedDay,l=>({...l,exercises:l.exercises.map(ex=>ex.id===id?{...ex,[field]:val}:ex)}));}
 
   function addCardio(){
-    if(!cardioDuration&&!cardioSpeed&&!cardioIncline) return;
+    const hasData=cardioDuration||cardioSteps||cardioDistance||cardioSpeed;
+    if(!hasData) return;
     const ct=CARDIO_TYPES.find(c=>c.id===cardioType);
-    const extra=cardioType==="walk"?{steps:cardioSpeed,distance:cardioIncline}:{};
+    const extra=cardioType==="walk"?{steps:cardioSteps,distance:cardioDistance}:{};
     const kcal=estimateCardioKcal(cardioType,parseFloat(cardioDuration)||0,weightKg,extra);
-    const entry={id:Date.now(),type:cardioType,label:ct.label,emoji:ct.emoji,duration:parseFloat(cardioDuration)||0,speed:cardioSpeed,incline:cardioIncline,resistance:cardioResistance,kcal};
+    const entry={
+      id:Date.now(),type:cardioType,label:ct.label,emoji:ct.emoji,
+      duration:parseFloat(cardioDuration)||0,
+      steps:cardioSteps,distance:cardioDistance, // walk fields
+      speed:cardioSpeed,incline:cardioIncline,   // walk_inc/run/bike fields
+      resistance:cardioResistance,
+      kcal
+    };
     updateLog(selectedDay,l=>({...l,cardioLog:[...(l.cardioLog||[]),entry]}));
-    setCardioDuration("");setCardioSpeed("");setCardioIncline("");setCardioResistance("");
+    setCardioDuration("");setCardioSteps("");setCardioDistance("");
+    setCardioSpeed("");setCardioIncline("");setCardioResistance("");
   }
   function removeCardio(id){updateLog(selectedDay,l=>({...l,cardioLog:(l.cardioLog||[]).filter(c=>c.id!==id)}));}
 
+  // Build a merged view of all exercise history from BOTH exStats table AND dailyLogs directly
+  // This catches sessions logged before the exStats feature existed (or not yet collapsed)
+  const allExHistory = useMemo(()=>{
+    const map = {}; // exercise_name → [{date, max_weight, total_volume}]
+    // Source 1: exStats table (saved when user collapses an exercise)
+    exStats.forEach(s=>{
+      if(!map[s.exercise_name]) map[s.exercise_name]=[];
+      map[s.exercise_name].push({date:s.date,max_weight:s.max_weight||0,total_volume:s.total_volume||0});
+    });
+    // Source 2: dailyLogs directly — catches ALL sessions regardless of whether they were collapsed
+    Object.entries(dailyLogs||{}).forEach(([date,dayLog])=>{
+      (dayLog.exercises||[]).forEach(ex=>{
+        if(!ex.name||!ex.sets?.length) return;
+        const unit=ex.unit||"lbs";
+        const weights=ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}).filter(w=>w>0);
+        if(weights.length===0) return;
+        const maxW=Math.max(...weights);
+        const vol=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
+        if(!map[ex.name]) map[ex.name]=[];
+        // Add if not already covered by exStats for this exact date
+        if(!map[ex.name].find(e=>e.date===date)){
+          map[ex.name].push({date,max_weight:maxW,total_volume:vol});
+        }
+      });
+    });
+    return map;
+  },[exStats, dailyLogs]);
+
   function getPR(name){
-    const stats=exStats.filter(s=>s.exercise_name===name);
-    if(stats.length===0) return null;
-    return Math.max(...stats.map(s=>s.max_weight||0));
+    const sessions=allExHistory[name];
+    if(!sessions||sessions.length===0) return null;
+    return Math.max(...sessions.map(s=>s.max_weight||0));
   }
   function getLastSession(name){
-    const stats=exStats.filter(s=>s.exercise_name===name&&s.date!==selectedDay).sort((a,b)=>b.date.localeCompare(a.date));
-    return stats[0]||null;
+    const sessions=allExHistory[name];
+    if(!sessions||sessions.length===0) return null;
+    return [...sessions].filter(s=>s.date!==selectedDay).sort((a,b)=>b.date.localeCompare(a.date))[0]||null;
   }
   function handleCollapse(ex){
     if(expanded===ex.id){
@@ -1982,14 +2022,14 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
             {ct?.fields.includes("steps")&&(
               <div style={{flex:1,minWidth:90}}>
                 <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Pas</label>
-                <input type="number" value={cardioSpeed} onChange={e=>setCardioSpeed(e.target.value)} placeholder="8000"
+                <input type="number" value={cardioSteps} onChange={e=>setCardioSteps(e.target.value)} placeholder="8000"
                   style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:16,outline:"none",fontFamily:"var(--mono)"}}/>
               </div>
             )}
             {ct?.fields.includes("distance")&&(
               <div style={{flex:1,minWidth:90}}>
                 <label style={{fontSize:10,color:"var(--text3)",fontWeight:700,textTransform:"uppercase"}}>Distance (km)</label>
-                <input type="number" value={cardioIncline} onChange={e=>setCardioIncline(e.target.value)} placeholder="5.0"
+                <input type="number" value={cardioDistance} onChange={e=>setCardioDistance(e.target.value)} placeholder="5.0"
                   style={{display:"block",width:"100%",marginTop:4,background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"9px 12px",color:"var(--text)",fontSize:16,outline:"none",fontFamily:"var(--mono)"}}/>
               </div>
             )}
@@ -2017,20 +2057,20 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
             )}
           </div>
           {/* Live kcal estimate */}
-          {(cardioDuration||cardioSpeed||cardioIncline)&&(()=>{
-            const extra=cardioType==="walk"?{steps:cardioSpeed,distance:cardioIncline}:{};
+          {(cardioDuration||cardioSteps||cardioDistance||cardioSpeed)&&(()=>{
+            const extra=cardioType==="walk"?{steps:cardioSteps,distance:cardioDistance}:{};
             const kcalPreview=estimateCardioKcal(cardioType,parseFloat(cardioDuration)||0,weightKg,extra);
             if(!kcalPreview) return null;
             return(
               <div style={{marginTop:10,fontSize:12,color:"var(--orange)",fontFamily:"var(--mono)"}}>
                 ≈ {kcalPreview} kcal brûlées
-                {cardioType==="walk"&&cardioSpeed&&<span style={{color:"var(--text3)",fontSize:10,marginLeft:6}}>(basé sur {parseInt(cardioSpeed).toLocaleString()} pas)</span>}
-                {cardioType==="walk"&&!cardioSpeed&&cardioIncline&&<span style={{color:"var(--text3)",fontSize:10,marginLeft:6}}>(basé sur {cardioIncline} km)</span>}
+                {cardioType==="walk"&&cardioSteps&&<span style={{color:"var(--text3)",fontSize:10,marginLeft:6}}>(basé sur {parseInt(cardioSteps).toLocaleString()} pas)</span>}
+                {cardioType==="walk"&&!cardioSteps&&cardioDistance&&<span style={{color:"var(--text3)",fontSize:10,marginLeft:6}}>(basé sur {cardioDistance} km)</span>}
               </div>
             );
           })()}
-          <button onClick={addCardio} disabled={!(cardioDuration||cardioSpeed||cardioIncline)}
-            style={{marginTop:12,width:"100%",background:(cardioDuration||cardioSpeed||cardioIncline)?"var(--green)":"rgba(168,255,120,0.3)",border:"none",borderRadius:12,padding:"11px",fontWeight:800,fontSize:14,color:"#080b14",cursor:"pointer",fontFamily:"var(--font)"}}>+ Logger</button>
+          <button onClick={addCardio} disabled={!(cardioDuration||cardioSteps||cardioDistance||cardioSpeed)}
+            style={{marginTop:12,width:"100%",background:(cardioDuration||cardioSteps||cardioDistance||cardioSpeed)?"var(--green)":"rgba(168,255,120,0.3)",border:"none",borderRadius:12,padding:"11px",fontWeight:800,fontSize:14,color:"#080b14",cursor:"pointer",fontFamily:"var(--font)"}}>+ Logger</button>
         </GlassCard>
 
         {/* Cardio history for this day */}
@@ -2043,8 +2083,10 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
                   <div style={{fontSize:13,fontWeight:600}}>{c.emoji} {c.label}</div>
                   <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>
                     {c.duration?`${c.duration} min`:""}
-                    {c.speed&&c.type==="walk"?` · ${parseInt(c.speed).toLocaleString()} pas`:(c.speed?` · ${c.speed} km/h`:"")}
-                    {c.incline&&c.type==="walk"?` · ${c.incline} km`:(c.incline?` · ${c.incline}% incl`:"")}
+                    {c.type==="walk"&&c.steps?` · ${parseInt(c.steps).toLocaleString()} pas`:""}
+                    {c.type==="walk"&&c.distance?` · ${c.distance} km`:""}
+                    {c.type!=="walk"&&c.speed?` · ${c.speed} km/h`:""}
+                    {c.incline?` · ${c.incline}% incl`:""}
                     {c.resistance?` · résist. ${c.resistance}`:""}
                   </div>
                 </div>
@@ -2398,12 +2440,18 @@ function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOu
           const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);
           const ws=weekStart.toISOString().slice(0,10);
           const we=weekEnd.toISOString().slice(0,10);
-          // Sum volume for selected muscle this week from exStats
-          const vol=exStats.filter(s=>s.date>=ws&&s.date<=we).reduce((sum,s)=>{
-            const dbEx=EXERCISE_DB.find(e=>e.name===s.exercise_name);
-            if(dbEx?.muscle===selMuscle||(selMuscle==="Full Body")) return sum+(s.total_volume||0);
-            return sum;
-          },0);
+          // Sum volume for selected muscle this week — read DIRECTLY from dailyLogs (catches all sessions)
+          let vol=0;
+          Object.entries(dailyLogs).forEach(([date,dayLog])=>{
+            if(date<ws||date>we) return;
+            (dayLog.exercises||[]).forEach(ex=>{
+              const dbEx=EXERCISE_DB.find(e=>e.name===ex.name);
+              const exMuscle=ex.muscle||dbEx?.muscle||"";
+              if(exMuscle!==selMuscle) return;
+              const unit=ex.unit||"lbs";
+              vol+=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
+            });
+          });
           weeks.push({label:weekLabel,vol:Math.round(vol)});
         }
         const maxVol=Math.max(...weeks.map(w=>w.vol),1);
@@ -2438,8 +2486,9 @@ function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOu
 
       {/* ── GRAPH 2: Progression par exercice ── */}
       {(()=>{
-        // All exercises ever recorded in exStats
-        const exNames=[...new Set(exStats.map(s=>s.exercise_name))].sort();
+        // Build exercise list from dailyLogs directly (not just exStats) so all sessions show up
+        const exNamesFromLogs=[...new Set(Object.values(dailyLogs).flatMap(d=>(d.exercises||[]).map(e=>e.name).filter(Boolean)))].sort();
+        const exNames=[...new Set([...exStats.map(s=>s.exercise_name),...exNamesFromLogs])].sort();
         const [selEx,setSelEx]=useState(exNames[0]||"");
         if(exNames.length===0) return(
           <GlassCard style={{marginBottom:28,padding:16}}>
@@ -2447,7 +2496,21 @@ function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOu
             <div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"16px 0"}}>Enregistre des séances pour voir ta progression</div>
           </GlassCard>
         );
-        const data=exStats.filter(s=>s.exercise_name===selEx&&s.max_weight>0).sort((a,b)=>a.date.localeCompare(b.date)).slice(-20);
+        // Build data from dailyLogs directly (catches all sessions)
+        const rawData={};
+        Object.entries(dailyLogs).forEach(([date,dayLog])=>{
+          (dayLog.exercises||[]).filter(ex=>ex.name===selEx&&ex.sets?.length).forEach(ex=>{
+            const unit=ex.unit||"lbs";
+            const weights=ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}).filter(w=>w>0);
+            if(!weights.length) return;
+            if(!rawData[date]||Math.max(...weights)>rawData[date]) rawData[date]=Math.max(...weights);
+          });
+        });
+        // Also merge exStats
+        exStats.filter(s=>s.exercise_name===selEx&&s.max_weight>0).forEach(s=>{
+          if(!rawData[s.date]||s.max_weight>rawData[s.date]) rawData[s.date]=s.max_weight;
+        });
+        const data=Object.entries(rawData).sort((a,b)=>a[0].localeCompare(b[0])).slice(-20).map(([date,max_weight])=>({date,max_weight}));
         const maxW2=Math.max(...data.map(d=>d.max_weight),1);
         const minW2=Math.max(0,Math.min(...data.map(d=>d.max_weight))-10);
         const GW=300,GH=100,GPL=30,GPB=24,GPT=10,GPR=10;
@@ -2667,7 +2730,7 @@ function App(){
         {page==="home"&&<HomePage log={todayLog} setPage={setPage} profile={profile} updateLog={updateLog} dailyLogs={dailyLogs} exStats={exStats}/>}
         {page==="nutrition"&&<NutritionPage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} mealPlan={selPlan}/>}
         {page==="tracking"&&<TrackingPage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} customFoods={customFoods}/>}
-        {page==="exercise"&&<ExercisePage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} exStats={exStats} saveExStats={saveExStats} programs={programs} setPrograms={setPrograms} profile={profile}/>}
+        {page==="exercise"&&<ExercisePage log={selLog} selectedDay={selectedDay} updateLog={updateLog} setShowPicker={setShowPicker} exStats={exStats} saveExStats={saveExStats} programs={programs} setPrograms={setPrograms} profile={profile} dailyLogs={dailyLogs}/>}
         {page==="weekly"&&<WeeklyPage dailyLogs={dailyLogs} exStats={exStats} setPage={setPage}/>}
         {page==="history"&&<HistoryPage dailyLogs={dailyLogs} setSelectedDay={setSelectedDay} setPage={setPage} setShowPicker={setShowPicker}/>}
         {page==="profile"&&<ProfilePage profile={profile} setProfile={setProfile} weightHistory={weightHistory} setWeightHistory={setWeightHistory} onSignOut={signOut} userEmail={user.email} exStats={exStats} dailyLogs={dailyLogs}/>}
