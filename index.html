@@ -59,10 +59,9 @@ html,body{
 input,textarea,select{
   font-family:var(--font);
   font-size:16px !important;
-  /* Prevent iOS adding rounded corners / inner shadow */
+  /* Prevent iOS adding inner shadow but keep border-radius from inline styles */
   -webkit-appearance:none;
   appearance:none;
-  border-radius:0;
 }
 button{
   font-family:var(--font);
@@ -526,7 +525,7 @@ function unitLabel(unit,food){
   if(unit==="scoop") return "scoop";
   return unit;
 }
-function emptyLog(){return{isSportDay:true,proteinKey:"poulet",carbKey:"riz",meals:{},supplements:{},water:0,exercises:[],trackingLog:{}};}
+function emptyLog(){return{isSportDay:true,proteinKey:"poulet",carbKey:"riz",meals:{},supplements:{},water:0,exercises:[],cardioLog:[],trackingLog:{}};}
 
 // ═══════════════════════════════════════════════
 // REST TIMER — Persistent (survives lock screen)
@@ -621,13 +620,16 @@ function GlassCard({children,style={},onClick,className=""}){
 
 function NeonRing({value,max,size=120,stroke=10,color="var(--green)",children}){
   const r=(size-stroke)/2,circ=2*Math.PI*r,pct=Math.min(Math.max(value/(max||1),0),1);
+  // Resolve color to a real hex for the drop-shadow filter (CSS vars don't work inside filter)
+  const colorMap={"var(--green)":"#a8ff78","var(--cyan)":"#00e5ff","var(--orange)":"#ff9f5a","var(--yellow)":"#ffd166","var(--red)":"#ff5f6d","var(--purple)":"#c084fc","rgba(0,229,255,0.6)":"#00e5ff"};
+  const shadowColor=colorMap[color]||color;
   return(
     <div style={{position:"relative",width:size,height:size,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <svg width={size} height={size} style={{position:"absolute",top:0,left:0,transform:"rotate(-90deg)"}}>
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke}/>
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
           strokeDasharray={circ} strokeDashoffset={circ*(1-pct)}
-          style={{transition:"stroke-dashoffset 0.7s cubic-bezier(.4,0,.2,1)",strokeLinecap:"round",filter:`drop-shadow(0 0 6px ${color}88)`}}/>
+          style={{transition:"stroke-dashoffset 0.7s cubic-bezier(.4,0,.2,1)",strokeLinecap:"round",filter:`drop-shadow(0 0 6px ${shadowColor}aa)`}}/>
       </svg>
       <div style={{zIndex:1,textAlign:"center"}}>{children}</div>
     </div>
@@ -637,8 +639,8 @@ function NeonRing({value,max,size=120,stroke=10,color="var(--green)",children}){
 function MacroBadge({kcal,prot,carbs,fat}){
   return(
     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-      {[[kcal,"kcal","var(--green)"],[`${prot}g`,"P","var(--orange)"],[`${carbs}g`,"C","var(--cyan)"],[`${fat}g`,"L","var(--yellow)"]].map(([v,l,c])=>(
-        <span key={l} style={{fontSize:10,fontWeight:700,color:c,background:`${c}18`,borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"var(--mono)"}}>{v} {l}</span>
+      {[[kcal,"kcal","var(--green)"],[`${prot}g`,"P","var(--orange)"],[`${carbs}g`,"C","var(--cyan)"],[`${fat}g`,"L","var(--yellow)"]].map(([v,l,c],i)=>(
+        <span key={i} style={{fontSize:10,fontWeight:700,color:c,background:`${c}18`,borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"var(--mono)"}}>{v} {l}</span>
       ))}
     </div>
   );
@@ -805,15 +807,24 @@ function calcStreak(dailyLogs){
   if(keys.length===0) return 0;
   let streak=0;
   const today=todayKey();
-  // Check if today is logged (even partially)
   let checkDate=new Date(today+"T12:00:00");
   for(let i=0;i<365;i++){
     const key=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Toronto",year:"numeric",month:"2-digit",day:"2-digit"}).format(checkDate);
-    if(dailyLogs[key]){
+    const log=dailyLogs[key];
+    // A day counts only if something was actually logged (meals, exercises, tracking, water, supplements)
+    const hasActivity=log&&(
+      Object.values(log.meals||{}).some(Boolean)||
+      (log.exercises||[]).length>0||
+      Object.values(log.trackingLog||{}).flat().length>0||
+      (log.water||0)>0||
+      Object.values(log.supplements||{}).some(Boolean)||
+      (log.cardioLog||[]).length>0
+    );
+    if(hasActivity){
       streak++;
       checkDate.setDate(checkDate.getDate()-1);
     } else {
-      // Allow today to not break streak if it's early
+      // Allow today to not break streak if it's early in the day
       if(i===0){checkDate.setDate(checkDate.getDate()-1);continue;}
       break;
     }
@@ -855,9 +866,16 @@ function DayPicker({dailyLogs,selectedDay,onSelect,onClose,onCreateDay}){
       <div style={{background:"#0d1120",borderRadius:"28px 28px 0 0",width:"100%",maxWidth:480,maxHeight:"88vh",overflowY:"auto",paddingBottom:40}} onClick={e=>e.stopPropagation()}>
         {/* Header */}
         <div style={{padding:"20px 20px 14px",borderBottom:"1px solid var(--border)",position:"sticky",top:0,background:"#0d1120",zIndex:1}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <span style={{fontWeight:800,fontSize:18}}>📅 Choisir un jour</span>
-            <button onClick={onClose} style={{background:"var(--glass2)",border:"1px solid var(--border)",borderRadius:10,color:"var(--text)",padding:"6px 12px",cursor:"pointer",fontFamily:"var(--font)",fontWeight:700}}>✕</button>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {/* Always-visible Today shortcut */}
+              <button onClick={()=>{onSelect(todayKey());onClose();}}
+                style={{background:"rgba(168,255,120,0.15)",border:"1px solid rgba(168,255,120,0.4)",borderRadius:20,padding:"5px 14px",color:"var(--green)",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"var(--font)"}}>
+                ⚡ Aujourd'hui
+              </button>
+              <button onClick={onClose} style={{background:"var(--glass2)",border:"1px solid var(--border)",borderRadius:10,color:"var(--text)",padding:"6px 12px",cursor:"pointer",fontFamily:"var(--font)",fontWeight:700}}>✕</button>
+            </div>
           </div>
           <div style={{display:"flex",gap:8}}>
             {[["calendar","🗓 Calendrier"],["list","📋 Liste"]].map(([v,l])=>(
@@ -1132,10 +1150,10 @@ function HomePage({log,setPage,profile,updateLog,dailyLogs,exStats}){
         ))}
       </div>
 
-      {/* Supplements quick view — clickable directly */}
+      {/* Supplements quick view — always today's, clickable directly */}
       <GlassCard style={{marginBottom:16,padding:"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <span style={{fontWeight:700,fontSize:13}}>💊 Suppléments</span>
+          <span style={{fontWeight:700,fontSize:13}}>💊 Suppléments <span style={{fontSize:10,color:"var(--text3)",fontWeight:400}}>(aujourd'hui)</span></span>
           <Tag color={supps===4?"var(--green)":"var(--text3)"}>{supps}/4 ✓</Tag>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -2146,8 +2164,30 @@ function WeeklyPage({dailyLogs,exStats,setPage}){
   const totalExercises=last7.reduce((s,d)=>s+(dailyLogs[d]?.exercises?.length||0),0);
   const adherence=last7.filter(d=>dailyLogs[d]).length;
 
-  // PRs this week
-  const weekPRs=exStats.filter(s=>s.date>=last7[0]&&s.date<=today&&s.max_weight>0);
+  // PRs this week — read from BOTH exStats and dailyLogs directly
+  const weekPRsMap={};
+  // From dailyLogs
+  last7.forEach(date=>{
+    const dayLog=dailyLogs[date];
+    if(!dayLog) return;
+    (dayLog.exercises||[]).forEach(ex=>{
+      if(!ex.sets?.length) return;
+      const unit=ex.unit||"lbs";
+      const weights=ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}).filter(w=>w>0);
+      if(!weights.length) return;
+      const maxW=Math.max(...weights);
+      if(!weekPRsMap[ex.name]||maxW>weekPRsMap[ex.name].max_weight){
+        weekPRsMap[ex.name]={exercise_name:ex.name,date,max_weight:maxW};
+      }
+    });
+  });
+  // Also from exStats
+  exStats.filter(s=>s.date>=last7[0]&&s.date<=today&&s.max_weight>0).forEach(s=>{
+    if(!weekPRsMap[s.exercise_name]||s.max_weight>weekPRsMap[s.exercise_name].max_weight){
+      weekPRsMap[s.exercise_name]={...s};
+    }
+  });
+  const weekPRs=Object.values(weekPRsMap).sort((a,b)=>b.max_weight-a.max_weight);
 
   return(
     <div style={{padding:"20px 20px 0"}}>
@@ -2302,6 +2342,156 @@ function HistoryPage({dailyLogs,setSelectedDay,setPage,setShowPicker}){
 }
 
 // ═══════════════════════════════════════════════
+// GRAPH COMPONENTS — proper React components so useState is valid
+// ═══════════════════════════════════════════════
+function MuscleVolumeGraph({dailyLogs}){
+  const muscles=Object.keys(MUSCLE_GROUPS).filter(m=>m!=="Full Body");
+  const [selMuscle,setSelMuscle]=useState(muscles[0]);
+
+  const weeks=[];
+  for(let w=9;w>=0;w--){
+    const d=new Date();d.setDate(d.getDate()-w*7);
+    const weekLabel=new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short"}).format(d);
+    const weekStart=new Date(d);weekStart.setDate(d.getDate()-d.getDay()+1);
+    const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);
+    const ws=weekStart.toISOString().slice(0,10);
+    const we=weekEnd.toISOString().slice(0,10);
+    let vol=0;
+    Object.entries(dailyLogs).forEach(([date,dayLog])=>{
+      if(date<ws||date>we) return;
+      (dayLog.exercises||[]).forEach(ex=>{
+        const dbEx=EXERCISE_DB.find(e=>e.name===ex.name);
+        const exMuscle=ex.muscle||dbEx?.muscle||"";
+        if(exMuscle!==selMuscle) return;
+        const unit=ex.unit||"lbs";
+        vol+=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
+      });
+    });
+    weeks.push({label:weekLabel,vol:Math.round(vol)});
+  }
+  const maxVol=Math.max(...weeks.map(w=>w.vol),1);
+  const hasData=weeks.some(w=>w.vol>0);
+  const muscleColor=MUSCLE_GROUPS[selMuscle]?.color||"var(--green)";
+
+  return(
+    <GlassCard style={{marginBottom:14,padding:16}}>
+      <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📊 Volume par groupe musculaire</div>
+      <select value={selMuscle} onChange={e=>setSelMuscle(e.target.value)}
+        style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"8px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--font)",marginBottom:14}}>
+        {muscles.map(m=><option key={m} value={m} style={{background:"var(--bg2)"}}>{m}</option>)}
+      </select>
+      {!hasData
+        ?<div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"16px 0"}}>Pas encore de données pour {selMuscle}</div>
+        :(
+          <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
+            {weeks.map((w,i)=>{
+              const pct=w.vol/maxVol;
+              return(
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  {w.vol>0&&<div style={{fontSize:7,color:"var(--text3)",fontFamily:"var(--mono)"}}>{w.vol>999?`${(w.vol/1000).toFixed(1)}k`:w.vol}</div>}
+                  <div style={{width:"100%",height:60,display:"flex",alignItems:"flex-end"}}>
+                    <div style={{width:"100%",height:`${Math.max(pct*100,w.vol>0?8:3)}%`,borderRadius:"4px 4px 0 0",background:w.vol>0?muscleColor:"rgba(255,255,255,0.05)",transition:"height 0.4s ease"}}/>
+                  </div>
+                  <div style={{fontSize:7,color:"var(--text3)",textAlign:"center",lineHeight:1}}>{w.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      }
+      <div style={{fontSize:10,color:"var(--text3)",marginTop:8}}>Volume total (lbs × reps) sur 10 semaines</div>
+    </GlassCard>
+  );
+}
+
+function ExerciseProgressGraph({dailyLogs,exStats}){
+  // Build exercise list from ALL sources
+  const exNamesFromLogs=[...new Set(Object.values(dailyLogs).flatMap(d=>(d.exercises||[]).map(e=>e.name).filter(Boolean)))].sort();
+  const exNames=[...new Set([...exStats.map(s=>s.exercise_name),...exNamesFromLogs])].sort();
+  const [selEx,setSelEx]=useState(exNames[0]||"");
+
+  if(exNames.length===0) return(
+    <GlassCard style={{marginBottom:28,padding:16}}>
+      <div style={{fontWeight:700,fontSize:13,marginBottom:8}}>📈 Progression par exercice</div>
+      <div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"16px 0"}}>Enregistre des séances pour voir ta progression</div>
+    </GlassCard>
+  );
+
+  // Build data from dailyLogs directly (catches all sessions, not just collapsed ones)
+  const rawData={};
+  Object.entries(dailyLogs).forEach(([date,dayLog])=>{
+    (dayLog.exercises||[]).filter(ex=>ex.name===selEx&&ex.sets?.length).forEach(ex=>{
+      const unit=ex.unit||"lbs";
+      const weights=ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}).filter(w=>w>0);
+      if(!weights.length) return;
+      const maxW=Math.max(...weights);
+      if(!rawData[date]||maxW>rawData[date]) rawData[date]=maxW;
+    });
+  });
+  // Merge exStats (may have entries not in logs)
+  exStats.filter(s=>s.exercise_name===selEx&&s.max_weight>0).forEach(s=>{
+    if(!rawData[s.date]||s.max_weight>rawData[s.date]) rawData[s.date]=s.max_weight;
+  });
+  const data=Object.entries(rawData).sort((a,b)=>a[0].localeCompare(b[0])).slice(-20).map(([date,max_weight])=>({date,max_weight}));
+
+  const maxW2=Math.max(...data.map(d=>d.max_weight),1);
+  const minW2=Math.max(0,Math.min(...data.map(d=>d.max_weight))-10);
+  const GW=300,GH=100,GPL=30,GPB=24,GPT=10,GPR=10;
+  const gxs=i=>GPL+i*(GW-GPL-GPR)/Math.max(data.length-1,1);
+  const gys=v=>GH-GPB-((v-minW2)/(maxW2-minW2||1))*(GH-GPT-GPB);
+  const gpts=data.map((d,i)=>`${gxs(i)},${gys(d.max_weight)}`).join(" ");
+  const first=data[0]?.max_weight||0, last2=data[data.length-1]?.max_weight||0;
+  const diff2=last2-first;
+
+  return(
+    <GlassCard style={{marginBottom:28,padding:16}}>
+      <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📈 Progression par exercice</div>
+      <select value={selEx} onChange={e=>setSelEx(e.target.value)}
+        style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"8px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--font)",marginBottom:12}}>
+        {exNames.map(n=><option key={n} value={n} style={{background:"var(--bg2)"}}>{n}</option>)}
+      </select>
+      {data.length<2
+        ?<div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"12px 0"}}>Besoin d'au moins 2 sessions pour voir la courbe</div>
+        :(
+          <>
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              {[{l:"Début",v:first.toFixed(0),c:"var(--yellow)"},{l:"Actuel",v:last2.toFixed(0),c:"var(--green)"},{l:"Progression",v:`${diff2>=0?"+":""}${diff2.toFixed(0)}`,c:diff2>=0?"var(--green)":"var(--red)"}].map(s=>(
+                <div key={s.l} style={{flex:1,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                  <div style={{fontSize:14,fontWeight:800,color:s.c,fontFamily:"var(--mono)"}}>{s.v} lbs</div>
+                  <div style={{fontSize:9,color:"var(--text3)"}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+            <svg width="100%" viewBox={`0 0 ${GW} ${GH}`} style={{overflow:"visible"}}>
+              <defs>
+                <linearGradient id="exg2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffd166" stopOpacity="0.25"/>
+                  <stop offset="100%" stopColor="#ffd166" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              {[minW2,(minW2+maxW2)/2,maxW2].map((v,i)=>(
+                <g key={i}>
+                  <line x1={GPL} y1={gys(v)} x2={GW-GPR} y2={gys(v)} stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+                  <text x={GPL-4} y={gys(v)+4} textAnchor="end" fontSize="8" fill="rgba(255,255,255,0.25)" fontFamily="var(--mono)">{v.toFixed(0)}</text>
+                </g>
+              ))}
+              <polygon points={`${gxs(0)},${GH-GPB} ${gpts} ${gxs(data.length-1)},${GH-GPB}`} fill="url(#exg2)"/>
+              <polyline points={gpts} fill="none" stroke="#ffd166" strokeWidth="2.5" strokeLinejoin="round" style={{filter:"drop-shadow(0 0 4px rgba(255,209,102,0.6))"}}/>
+              {data.map((d,i)=>(
+                <g key={i}>
+                  <circle cx={gxs(i)} cy={gys(d.max_weight)} r="4" fill="#ffd166" style={{filter:"drop-shadow(0 0 3px rgba(255,209,102,0.8))"}}/>
+                  {i%Math.max(1,Math.floor(data.length/5))===0&&<text x={gxs(i)} y={GH-6} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.3)" fontFamily="var(--mono)">{formatDate(d.date).slice(0,5)}</text>}
+                </g>
+              ))}
+            </svg>
+          </>
+        )
+      }
+    </GlassCard>
+  );
+}
+
+// ═══════════════════════════════════════════════
 // PROFILE PAGE
 // ═══════════════════════════════════════════════
 function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOut,userEmail,exStats,dailyLogs}){
@@ -2416,7 +2606,7 @@ function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOu
       )}
 
       {/* Weight history */}
-      <GlassCard style={{marginBottom:28,padding:16}}>
+      <GlassCard style={{marginBottom:14,padding:16}}>
         <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>📋 Historique pesées</div>
         {[...weightHistory].reverse().map((e,i)=>(
           <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
@@ -2426,149 +2616,9 @@ function ProfilePage({profile,setProfile,weightHistory,setWeightHistory,onSignOu
         ))}
       </GlassCard>
 
-      {/* ── GRAPH 1: Volume par groupe musculaire ── */}
-      {(()=>{
-        const muscles=Object.keys(MUSCLE_GROUPS).filter(m=>m!=="Full Body");
-        const [selMuscle,setSelMuscle]=useState(muscles[0]);
-        // Build weekly volume data from dailyLogs + exStats
-        // Get last 10 weeks
-        const weeks=[];
-        for(let w=9;w>=0;w--){
-          const d=new Date();d.setDate(d.getDate()-w*7);
-          const weekLabel=new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short"}).format(d);
-          const weekStart=new Date(d);weekStart.setDate(d.getDate()-d.getDay()+1);
-          const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);
-          const ws=weekStart.toISOString().slice(0,10);
-          const we=weekEnd.toISOString().slice(0,10);
-          // Sum volume for selected muscle this week — read DIRECTLY from dailyLogs (catches all sessions)
-          let vol=0;
-          Object.entries(dailyLogs).forEach(([date,dayLog])=>{
-            if(date<ws||date>we) return;
-            (dayLog.exercises||[]).forEach(ex=>{
-              const dbEx=EXERCISE_DB.find(e=>e.name===ex.name);
-              const exMuscle=ex.muscle||dbEx?.muscle||"";
-              if(exMuscle!==selMuscle) return;
-              const unit=ex.unit||"lbs";
-              vol+=ex.sets.reduce((s,st)=>{const r=parseInt(st.reps)||0,w=parseFloat(st.weight)||0;return s+r*(unit==="kg"?w*KG_TO_LBS:w);},0);
-            });
-          });
-          weeks.push({label:weekLabel,vol:Math.round(vol)});
-        }
-        const maxVol=Math.max(...weeks.map(w=>w.vol),1);
-        const hasData=weeks.some(w=>w.vol>0);
-        return(
-          <GlassCard style={{marginBottom:14,padding:16}}>
-            <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📊 Volume par groupe musculaire</div>
-            <select value={selMuscle} onChange={e=>setSelMuscle(e.target.value)}
-              style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"8px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--font)",marginBottom:14}}>
-              {muscles.map(m=><option key={m} value={m} style={{background:"var(--bg2)"}}>{m}</option>)}
-            </select>
-            {!hasData?<div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"16px 0"}}>Pas encore de données pour {selMuscle}</div>:(
-              <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
-                {weeks.map((w,i)=>{
-                  const pct=w.vol/maxVol;
-                  return(
-                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                      {w.vol>0&&<div style={{fontSize:7,color:"var(--text3)",fontFamily:"var(--mono)"}}>{w.vol>999?`${(w.vol/1000).toFixed(1)}k`:w.vol}</div>}
-                      <div style={{width:"100%",height:60,display:"flex",alignItems:"flex-end"}}>
-                        <div style={{width:"100%",height:`${Math.max(pct*100,w.vol>0?8:3)}%`,borderRadius:"4px 4px 0 0",background:w.vol>0?`${MUSCLE_GROUPS[selMuscle]?.color||"var(--green)"}`:  "rgba(255,255,255,0.05)",transition:"height 0.4s ease"}}/>
-                      </div>
-                      <div style={{fontSize:7,color:"var(--text3)",textAlign:"center",lineHeight:1}}>{w.label}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{fontSize:10,color:"var(--text3)",marginTop:8}}>Volume total (lbs × reps) sur 10 semaines</div>
-          </GlassCard>
-        );
-      })()}
-
-      {/* ── GRAPH 2: Progression par exercice ── */}
-      {(()=>{
-        // Build exercise list from dailyLogs directly (not just exStats) so all sessions show up
-        const exNamesFromLogs=[...new Set(Object.values(dailyLogs).flatMap(d=>(d.exercises||[]).map(e=>e.name).filter(Boolean)))].sort();
-        const exNames=[...new Set([...exStats.map(s=>s.exercise_name),...exNamesFromLogs])].sort();
-        const [selEx,setSelEx]=useState(exNames[0]||"");
-        if(exNames.length===0) return(
-          <GlassCard style={{marginBottom:28,padding:16}}>
-            <div style={{fontWeight:700,fontSize:13,marginBottom:8}}>📈 Progression par exercice</div>
-            <div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"16px 0"}}>Enregistre des séances pour voir ta progression</div>
-          </GlassCard>
-        );
-        // Build data from dailyLogs directly (catches all sessions)
-        const rawData={};
-        Object.entries(dailyLogs).forEach(([date,dayLog])=>{
-          (dayLog.exercises||[]).filter(ex=>ex.name===selEx&&ex.sets?.length).forEach(ex=>{
-            const unit=ex.unit||"lbs";
-            const weights=ex.sets.map(s=>{const w=parseFloat(s.weight)||0;return unit==="kg"?w*KG_TO_LBS:w;}).filter(w=>w>0);
-            if(!weights.length) return;
-            if(!rawData[date]||Math.max(...weights)>rawData[date]) rawData[date]=Math.max(...weights);
-          });
-        });
-        // Also merge exStats
-        exStats.filter(s=>s.exercise_name===selEx&&s.max_weight>0).forEach(s=>{
-          if(!rawData[s.date]||s.max_weight>rawData[s.date]) rawData[s.date]=s.max_weight;
-        });
-        const data=Object.entries(rawData).sort((a,b)=>a[0].localeCompare(b[0])).slice(-20).map(([date,max_weight])=>({date,max_weight}));
-        const maxW2=Math.max(...data.map(d=>d.max_weight),1);
-        const minW2=Math.max(0,Math.min(...data.map(d=>d.max_weight))-10);
-        const GW=300,GH=100,GPL=30,GPB=24,GPT=10,GPR=10;
-        const gxs=i=>GPL+i*(GW-GPL-GPR)/Math.max(data.length-1,1);
-        const gys=v=>GH-GPB-((v-minW2)/(maxW2-minW2||1))*(GH-GPT-GPB);
-        const gpts=data.map((d,i)=>`${gxs(i)},${gys(d.max_weight)}`).join(" ");
-        const first=data[0]?.max_weight||0,last2=data[data.length-1]?.max_weight||0;
-        const diff2=last2-first;
-        return(
-          <GlassCard style={{marginBottom:28,padding:16}}>
-            <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>📈 Progression par exercice</div>
-            <select value={selEx} onChange={e=>setSelEx(e.target.value)}
-              style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid var(--border2)",borderRadius:10,padding:"8px 12px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"var(--font)",marginBottom:12}}>
-              {exNames.map(n=><option key={n} value={n} style={{background:"var(--bg2)"}}>{n}</option>)}
-            </select>
-            {data.length<2?<div style={{textAlign:"center",color:"var(--text3)",fontSize:12,padding:"12px 0"}}>Besoin d'au moins 2 sessions pour voir la courbe</div>:(
-              <>
-                <div style={{display:"flex",gap:10,marginBottom:12}}>
-                  <div style={{flex:1,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:800,color:"var(--yellow)",fontFamily:"var(--mono)"}}>{first.toFixed(0)} lbs</div>
-                    <div style={{fontSize:9,color:"var(--text3)"}}>Début</div>
-                  </div>
-                  <div style={{flex:1,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:800,color:"var(--green)",fontFamily:"var(--mono)"}}>{last2.toFixed(0)} lbs</div>
-                    <div style={{fontSize:9,color:"var(--text3)"}}>Actuel</div>
-                  </div>
-                  <div style={{flex:1,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:800,color:diff2>=0?"var(--green)":"var(--red)",fontFamily:"var(--mono)"}}>{diff2>=0?"+":""}{diff2.toFixed(0)} lbs</div>
-                    <div style={{fontSize:9,color:"var(--text3)"}}>Progression</div>
-                  </div>
-                </div>
-                <svg width="100%" viewBox={`0 0 ${GW} ${GH}`} style={{overflow:"visible"}}>
-                  <defs>
-                    <linearGradient id="exg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--yellow)" stopOpacity="0.25"/>
-                      <stop offset="100%" stopColor="var(--yellow)" stopOpacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  {[minW2,(minW2+maxW2)/2,maxW2].map((v,i)=>(
-                    <g key={i}>
-                      <line x1={GPL} y1={gys(v)} x2={GW-GPR} y2={gys(v)} stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
-                      <text x={GPL-4} y={gys(v)+4} textAnchor="end" fontSize="8" fill="rgba(255,255,255,0.25)" fontFamily="var(--mono)">{v.toFixed(0)}</text>
-                    </g>
-                  ))}
-                  <polygon points={`${gxs(0)},${GH-GPB} ${gpts} ${gxs(data.length-1)},${GH-GPB}`} fill="url(#exg)"/>
-                  <polyline points={gpts} fill="none" stroke="var(--yellow)" strokeWidth="2.5" strokeLinejoin="round" style={{filter:"drop-shadow(0 0 4px rgba(255,209,102,0.5))"}}/>
-                  {data.map((d,i)=>(
-                    <g key={i}>
-                      <circle cx={gxs(i)} cy={gys(d.max_weight)} r="4" fill="var(--yellow)" style={{filter:"drop-shadow(0 0 3px rgba(255,209,102,0.8))"}}/>
-                      {i%Math.max(1,Math.floor(data.length/5))===0&&<text x={gxs(i)} y={GH-6} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.3)" fontFamily="var(--mono)">{formatDate(d.date).slice(0,5)}</text>}
-                    </g>
-                  ))}
-                </svg>
-              </>
-            )}
-          </GlassCard>
-        );
-      })()}
+      {/* Graphs — rendered as proper child components to allow useState */}
+      <MuscleVolumeGraph dailyLogs={dailyLogs}/>
+      <ExerciseProgressGraph dailyLogs={dailyLogs} exStats={exStats}/>
     </div>
   );
 }
@@ -2625,7 +2675,8 @@ function App(){
 
   function scheduleSync(type,data){
     if(!user)return;
-    const key=type+JSON.stringify(data).slice(0,40);
+    // Use a stable key per type — for profile, always the same key so debounce works correctly
+    const key=type==="profile"?"profile_sync":type+"_"+(data?.date||"");
     clearTimeout(syncQ.current[key]);
     syncQ.current[key]=setTimeout(async()=>{
       setSyncing(true);
@@ -2681,7 +2732,8 @@ function App(){
   function getLog(day){return dailyLogs[day]||emptyLog();}
   const todayLog=getLog(todayKey());
   const selLog=getLog(selectedDay);
-  const selPlan=buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz");
+  const selPlan=useMemo(()=>buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz"),
+    [selLog.isSportDay,selLog.proteinKey,selLog.carbKey]);
 
   const NAV=[
     {id:"home",l:"Accueil",i:"⬡"},
