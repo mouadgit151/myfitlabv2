@@ -319,45 +319,151 @@ const MUSCLE_GROUPS = {
 };
 
 // ═══════════════════════════════════════════════
-// FOOD DB — enrichie (~75 aliments)
+// FOOD DB — avec ratio cru/cuit pour les aliments concernés
+// cookRatio = poids cuit / poids cru (ex: 0.75 = poulet perd 25% à la cuisson)
 // ═══════════════════════════════════════════════
 const FOOD_DB=[
-  // PROTÉINES
-  {id:"poulet_cru",name:"Poitrine de poulet (cru)",cat:"🍗 Protéines",kcal:110,prot:22,carbs:0,fat:2,defaultUnit:"g",units:["g"]},
-  {id:"poulet_cuit",name:"Poitrine de poulet (cuit)",cat:"🍗 Protéines",kcal:165,prot:31,carbs:0,fat:4,defaultUnit:"g",units:["g"]},
-  {id:"boeuf_hache",name:"Bœuf haché 5% (cru)",cat:"🍗 Protéines",kcal:140,prot:20,carbs:0,fat:5,defaultUnit:"g",units:["g"]},
-  {id:"boeuf_hache15",name:"Bœuf haché 15% (cru)",cat:"🍗 Protéines",kcal:215,prot:17,carbs:0,fat:16,defaultUnit:"g",units:["g"]},
-  {id:"thon_conserve",name:"Thon en conserve (égoutté)",cat:"🍗 Protéines",kcal:116,prot:26,carbs:0,fat:0.9,defaultUnit:"g",units:["g","can"],canG:170},
-  {id:"saumon",name:"Saumon (cru)",cat:"🍗 Protéines",kcal:208,prot:20,carbs:0,fat:13,defaultUnit:"g",units:["g"]},
-  {id:"tilapia",name:"Tilapia (cru)",cat:"🍗 Protéines",kcal:96,prot:20,carbs:0,fat:2,defaultUnit:"g",units:["g"]},
-  {id:"crevettes",name:"Crevettes (cuites)",cat:"🍗 Protéines",kcal:99,prot:24,carbs:0,fat:0.3,defaultUnit:"g",units:["g"]},
-  {id:"oeufs_entier",name:"Œuf entier",cat:"🍗 Protéines",kcal:70,prot:6,carbs:0.5,fat:5,defaultUnit:"qty",units:["qty","g"],qtyG:60},
-  {id:"blancs_oeuf",name:"Blancs d'œufs liquides",cat:"🍗 Protéines",kcal:44,prot:10.5,carbs:0.3,fat:0.1,defaultUnit:"ml",units:["ml","g"]},
-  {id:"collagene",name:"Peptides de collagène",cat:"🍗 Protéines",kcal:360,prot:90,carbs:0,fat:0,defaultUnit:"g",units:["g"]},
-  {id:"whey",name:"Whey Protéine",cat:"🍗 Protéines",kcal:400,prot:80,carbs:8,fat:5,defaultUnit:"g",units:["g","scoop"],scoopG:30},
-  {id:"dinde",name:"Poitrine de dinde (cru)",cat:"🍗 Protéines",kcal:104,prot:22,carbs:0,fat:1.6,defaultUnit:"g",units:["g"]},
-  {id:"fromage_cottage",name:"Fromage cottage (2%)",cat:"🍗 Protéines",kcal:84,prot:11,carbs:3.4,fat:2.3,defaultUnit:"g",units:["g"]},
-  {id:"boeuf_steak",name:"Steak de bœuf (cru)",cat:"🍗 Protéines",kcal:158,prot:26,carbs:0,fat:6,defaultUnit:"g",units:["g"]},
+  // PROTÉINES — viandes avec cookRatio
+  {id:"poulet_cru",name:"Poitrine de poulet",cat:"🍗 Protéines",
+    kcal:110,prot:22,carbs:0,fat:2,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.75, // 100g cru → 75g cuit, macros identiques
+    defaultCooked:false},
+  {id:"veau_hache",name:"Veau haché",cat:"🍗 Protéines",
+    kcal:210,prot:19,carbs:0,fat:13,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.70, // perd 30% à la cuisson
+    defaultCooked:false},
+  {id:"boeuf_hache15",name:"Bœuf haché 15%",cat:"🍗 Protéines",
+    kcal:215,prot:17,carbs:0,fat:16,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.70,
+    defaultCooked:false},
+  {id:"boeuf_hache5",name:"Bœuf haché 5%",cat:"🍗 Protéines",
+    kcal:140,prot:20,carbs:0,fat:5,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.70,
+    defaultCooked:false},
+  {id:"thon_conserve",name:"Thon en conserve (égoutté)",cat:"🍗 Protéines",
+    kcal:116,prot:26,carbs:0,fat:0.9,
+    defaultUnit:"g",units:["g","can"],canG:170},
+  {id:"saumon",name:"Saumon",cat:"🍗 Protéines",
+    kcal:208,prot:20,carbs:0,fat:13,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.75,
+    defaultCooked:false},
+  {id:"tilapia",name:"Tilapia",cat:"🍗 Protéines",
+    kcal:96,prot:20,carbs:0,fat:2,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.75,
+    defaultCooked:false},
+  {id:"crevettes",name:"Crevettes",cat:"🍗 Protéines",
+    kcal:85,prot:18,carbs:0,fat:0.9,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.80,
+    defaultCooked:false},
+  {id:"dinde",name:"Poitrine de dinde",cat:"🍗 Protéines",
+    kcal:104,prot:22,carbs:0,fat:1.6,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.75,
+    defaultCooked:false},
+  {id:"oeufs_entier",name:"Œuf entier",cat:"🍗 Protéines",
+    kcal:70,prot:6,carbs:0.5,fat:5,
+    defaultUnit:"qty",units:["qty","g"],qtyG:60},
+  {id:"blancs_oeuf",name:"Blancs d'œufs liquides",cat:"🍗 Protéines",
+    kcal:44,prot:10.5,carbs:0.3,fat:0.1,
+    defaultUnit:"ml",units:["ml","g"]},
+  {id:"collagene",name:"Peptides de collagène",cat:"🍗 Protéines",
+    kcal:360,prot:90,carbs:0,fat:0,
+    defaultUnit:"g",units:["g"]},
+  {id:"whey",name:"Whey Protéine",cat:"🍗 Protéines",
+    kcal:400,prot:80,carbs:8,fat:5,
+    defaultUnit:"g",units:["g","scoop"],scoopG:30},
+  {id:"fromage_cottage",name:"Fromage cottage (2%)",cat:"🍗 Protéines",
+    kcal:84,prot:11,carbs:3.4,fat:2.3,
+    defaultUnit:"g",units:["g"]},
+  {id:"boeuf_steak",name:"Steak de bœuf",cat:"🍗 Protéines",
+    kcal:158,prot:26,carbs:0,fat:6,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.72,
+    defaultCooked:false},
   // LAITIER
-  {id:"yaourt_kirkland",name:"Yaourt grec Kirkland",cat:"🥛 Laitier",kcal:100,prot:17,carbs:6,fat:0,defaultUnit:"qty",units:["qty","g"],qtyG:175,perQty:true,qtyKcal:100,qtyProt:17,qtyCarbs:6,qtyFat:0},
-  {id:"yaourt_oikos",name:"Yaourt Oikos PRO",cat:"🥛 Laitier",kcal:80,prot:13,carbs:5,fat:1,defaultUnit:"qty",units:["qty","g"],qtyG:115,perQty:true,qtyKcal:80,qtyProt:13,qtyCarbs:5,qtyFat:1},
-  {id:"lait_2",name:"Lait 2%",cat:"🥛 Laitier",kcal:50,prot:3.4,carbs:4.8,fat:2,defaultUnit:"ml",units:["ml","g"]},
-  {id:"fromage_cheddar",name:"Cheddar",cat:"🥛 Laitier",kcal:403,prot:25,carbs:1.3,fat:33,defaultUnit:"g",units:["g"]},
-  {id:"mozzarella",name:"Mozzarella",cat:"🥛 Laitier",kcal:280,prot:28,carbs:2.2,fat:17,defaultUnit:"g",units:["g"]},
-  // GLUCIDES
-  {id:"riz_blanc",name:"Riz blanc (sec)",cat:"🍚 Glucides",kcal:360,prot:7,carbs:80,fat:0.5,defaultUnit:"g",units:["g"]},
-  {id:"riz_brun",name:"Riz brun (sec)",cat:"🍚 Glucides",kcal:355,prot:8,carbs:74,fat:3,defaultUnit:"g",units:["g"]},
-  {id:"pates_seches",name:"Pâtes (sec)",cat:"🍚 Glucides",kcal:350,prot:13,carbs:72,fat:1.5,defaultUnit:"g",units:["g"]},
-  {id:"pates_ble",name:"Pâtes blé entier (sec)",cat:"🍚 Glucides",kcal:325,prot:14,carbs:65,fat:2,defaultUnit:"g",units:["g"]},
-  {id:"avoine",name:"Flocons d'avoine",cat:"🍚 Glucides",kcal:380,prot:13,carbs:60,fat:7,defaultUnit:"g",units:["g"]},
-  {id:"cream_rice",name:"Cream of Rice (sec)",cat:"🍚 Glucides",kcal:360,prot:6,carbs:80,fat:0.5,defaultUnit:"g",units:["g"]},
-  {id:"rice_cake",name:"Rice Cake",cat:"🍚 Glucides",kcal:375,prot:6,carbs:81,fat:3,defaultUnit:"qty",units:["qty","g"],qtyG:16,perQty:true,qtyKcal:60,qtyProt:1,qtyCarbs:13,qtyFat:0.5},
-  {id:"patate",name:"Pomme de terre (crue)",cat:"🍚 Glucides",kcal:77,prot:2,carbs:17,fat:0.1,defaultUnit:"g",units:["g"]},
-  {id:"patate_douce",name:"Patate douce (crue)",cat:"🍚 Glucides",kcal:86,prot:1.6,carbs:20,fat:0.1,defaultUnit:"g",units:["g"]},
-  {id:"banane",name:"Banane",cat:"🍚 Glucides",kcal:89,prot:1.1,carbs:23,fat:0.3,defaultUnit:"qty",units:["qty","g"],qtyG:120},
-  {id:"pain_ble",name:"Pain blé entier (tranche)",cat:"🍚 Glucides",kcal:265,prot:9,carbs:48,fat:3.5,defaultUnit:"qty",units:["qty","g"],qtyG:30,perQty:true,qtyKcal:80,qtyProt:3,qtyCarbs:14,qtyFat:1},
-  {id:"tortilla",name:"Tortilla (blé entier)",cat:"🍚 Glucides",kcal:285,prot:8,carbs:46,fat:6,defaultUnit:"qty",units:["qty","g"],qtyG:45,perQty:true,qtyKcal:128,qtyProt:3.5,qtyCarbs:21,qtyFat:2.7},
-  {id:"quinoa",name:"Quinoa (sec)",cat:"🍚 Glucides",kcal:368,prot:14,carbs:64,fat:6,defaultUnit:"g",units:["g"]},
+  {id:"yaourt_kirkland",name:"Yaourt grec Kirkland",cat:"🥛 Laitier",
+    kcal:100,prot:17,carbs:6,fat:0,
+    defaultUnit:"qty",units:["qty","g"],qtyG:175,
+    perQty:true,qtyKcal:100,qtyProt:17,qtyCarbs:6,qtyFat:0},
+  {id:"yaourt_oikos",name:"Yaourt Oikos PRO",cat:"🥛 Laitier",
+    kcal:80,prot:13,carbs:5,fat:1,
+    defaultUnit:"qty",units:["qty","g"],qtyG:115,
+    perQty:true,qtyKcal:80,qtyProt:13,qtyCarbs:5,qtyFat:1},
+  {id:"lait_2",name:"Lait 2%",cat:"🥛 Laitier",
+    kcal:50,prot:3.4,carbs:4.8,fat:2,
+    defaultUnit:"ml",units:["ml","g"]},
+  {id:"fromage_cheddar",name:"Cheddar",cat:"🥛 Laitier",
+    kcal:403,prot:25,carbs:1.3,fat:33,
+    defaultUnit:"g",units:["g"]},
+  {id:"mozzarella",name:"Mozzarella",cat:"🥛 Laitier",
+    kcal:280,prot:28,carbs:2.2,fat:17,
+    defaultUnit:"g",units:["g"]},
+  // GLUCIDES — avec cookRatio (sec → cuit absorbent l'eau)
+  {id:"riz_blanc",name:"Riz blanc",cat:"🍚 Glucides",
+    kcal:360,prot:7,carbs:80,fat:0.5,
+    defaultUnit:"g",units:["g"],
+    cookRatio:2.8, // 100g sec → 280g cuit
+    defaultCooked:false},
+  {id:"riz_brun",name:"Riz brun",cat:"🍚 Glucides",
+    kcal:355,prot:8,carbs:74,fat:3,
+    defaultUnit:"g",units:["g"],
+    cookRatio:2.5,
+    defaultCooked:false},
+  {id:"pates_seches",name:"Pâtes blanches",cat:"🍚 Glucides",
+    kcal:350,prot:13,carbs:72,fat:1.5,
+    defaultUnit:"g",units:["g"],
+    cookRatio:2.2,
+    defaultCooked:false},
+  {id:"pates_ble",name:"Pâtes blé entier",cat:"🍚 Glucides",
+    kcal:325,prot:14,carbs:65,fat:2,
+    defaultUnit:"g",units:["g"],
+    cookRatio:2.2,
+    defaultCooked:false},
+  {id:"avoine",name:"Flocons d'avoine",cat:"🍚 Glucides",
+    kcal:380,prot:13,carbs:60,fat:7,
+    defaultUnit:"g",units:["g"]},
+  {id:"cream_rice",name:"Cream of Rice",cat:"🍚 Glucides",
+    kcal:360,prot:6,carbs:80,fat:0.5,
+    defaultUnit:"g",units:["g"],
+    cookRatio:3.0,
+    defaultCooked:false},
+  {id:"rice_cake",name:"Rice Cake",cat:"🍚 Glucides",
+    kcal:375,prot:6,carbs:81,fat:3,
+    defaultUnit:"qty",units:["qty","g"],qtyG:16,
+    perQty:true,qtyKcal:60,qtyProt:1,qtyCarbs:13,qtyFat:0.5},
+  {id:"patate",name:"Pomme de terre",cat:"🍚 Glucides",
+    kcal:77,prot:2,carbs:17,fat:0.1,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.85,
+    defaultCooked:false},
+  {id:"patate_douce",name:"Patate douce",cat:"🍚 Glucides",
+    kcal:86,prot:1.6,carbs:20,fat:0.1,
+    defaultUnit:"g",units:["g"],
+    cookRatio:0.85,
+    defaultCooked:false},
+  {id:"banane",name:"Banane",cat:"🍚 Glucides",
+    kcal:89,prot:1.1,carbs:23,fat:0.3,
+    defaultUnit:"qty",units:["qty","g"],qtyG:120},
+  {id:"quinoa",name:"Quinoa",cat:"🍚 Glucides",
+    kcal:368,prot:14,carbs:64,fat:6,
+    defaultUnit:"g",units:["g"],
+    cookRatio:2.8,
+    defaultCooked:false},
+  {id:"pain_ble",name:"Pain blé entier (tranche)",cat:"🍚 Glucides",
+    kcal:265,prot:9,carbs:48,fat:3.5,
+    defaultUnit:"qty",units:["qty","g"],qtyG:30,
+    perQty:true,qtyKcal:80,qtyProt:3,qtyCarbs:14,qtyFat:1},
+  {id:"tortilla",name:"Tortilla (blé entier)",cat:"🍚 Glucides",
+    kcal:285,prot:8,carbs:46,fat:6,
+    defaultUnit:"qty",units:["qty","g"],qtyG:45,
+    perQty:true,qtyKcal:128,qtyProt:3.5,qtyCarbs:21,qtyFat:2.7},
   // FRUITS
   {id:"pomme",name:"Pomme",cat:"🍎 Fruits",kcal:52,prot:0.3,carbs:14,fat:0.2,defaultUnit:"qty",units:["qty","g"],qtyG:182},
   {id:"orange",name:"Orange",cat:"🍎 Fruits",kcal:47,prot:0.9,carbs:12,fat:0.1,defaultUnit:"qty",units:["qty","g"],qtyG:180},
@@ -405,9 +511,10 @@ const MEAL_SLOTS=[
 // NUTRITION PLAN DATA
 // ═══════════════════════════════════════════════
 const PROTEIN_VARIANTS={
-  poulet:{label:"Poulet",emoji:"🍗",color:"#ffd478",kcalPer100:110,protPer100:22},
-  boeuf:{label:"Bœuf haché",emoji:"🥩",color:"#ff8a78",kcalPer100:140,protPer100:20},
-  thon:{label:"Thon",emoji:"🐟",color:"#78d4ff",kcalPer100:116,protPer100:26},
+  poulet:{label:"Poulet",emoji:"🍗",color:"#ffd478",kcalPer100:110,protPer100:22,fatPer100:2},
+  veau:{label:"Veau haché",emoji:"🥩",color:"#ff8a78",kcalPer100:210,protPer100:19,fatPer100:13},
+  boeuf:{label:"Bœuf haché 15%",emoji:"🥩",color:"#e06040",kcalPer100:215,protPer100:17,fatPer100:16},
+  thon:{label:"Thon",emoji:"🐟",color:"#78d4ff",kcalPer100:116,protPer100:26,fatPer100:0.9},
 };
 const CARB_VARIANTS={
   riz:{label:"Riz blanc",emoji:"🍚",color:"#a8e8ff"},
@@ -425,38 +532,239 @@ const SUPPLEMENTS=[
 
 const ING={
   blancs150:{label:"150ml blancs d'œufs",kcal:66,prot:15.8,carbs:0.5,fat:0.2},
+  blancs100:{label:"100ml blancs d'œufs",kcal:44,prot:10.5,carbs:0.3,fat:0.1},
   oeuf2:{label:"2 œufs entiers",kcal:140,prot:12,carbs:1,fat:10},
   oeuf3:{label:"3 œufs entiers",kcal:210,prot:18,carbs:1,fat:15},
   avoine40:{label:"40g flocons d'avoine",kcal:152,prot:5,carbs:24,fat:3},
+  creamRicePdj:{label:"40g Cream of Rice (sec)",kcal:144,prot:2.4,carbs:32,fat:0.2},
   chia10:{label:"10g graines de chia",kcal:49,prot:2,carbs:3,fat:3},
   pomme:{label:"1 pomme",kcal:95,prot:0.5,carbs:25,fat:0},
   banane:{label:"1 banane",kcal:105,prot:1,carbs:27,fat:0},
   avocatDemi:{label:"½ avocat (~75g)",kcal:120,prot:2,carbs:4,fat:11},
   huileOlive:{label:"1 c. à thé huile d'olive",kcal:42,prot:0,carbs:0,fat:5},
   legumes:{label:"Champignons, oignons, tomates",kcal:40,prot:2,carbs:8,fat:0},
-  legumesBroc:{label:"Légumes + brocolis",kcal:51,prot:5,carbs:8,fat:0},
+  legumesBroc:{label:"Épinards, brocolis, oignons",kcal:51,prot:5,carbs:8,fat:0},
+  legumesVert:{label:"Épinards, courgettes, poivron",kcal:35,prot:3,carbs:6,fat:0},
   legumesSimp:{label:"Légumes variés",kcal:40,prot:2,carbs:8,fat:0},
+  legumesComplet:{label:"Champignons, oignons, tomates, brocolis",kcal:51,prot:5,carbs:8,fat:0},
   creamRice35:{label:"35g Cream of Rice (sec)",kcal:126,prot:2,carbs:28,fat:0},
+  riceCake2:{label:"2 Rice Cakes",kcal:120,prot:2,carbs:26,fat:1},
   collagene:{label:"10g peptides de collagène",kcal:36,prot:9,carbs:0,fat:0},
   epices:{label:"Cannelle & sirop 0 sucre",kcal:0,prot:0,carbs:0,fat:0,note:true},
+  sauceBBQ:{label:"2 tbsp sauce BBQ (~30g)",kcal:15,prot:0,carbs:3,fat:0},
   petitsPois:{label:"50g petits pois",kcal:42,prot:4,carbs:8,fat:0},
   sauceTomate:{label:"Sauce tomate (~60g)",kcal:25,prot:1,carbs:5,fat:0},
   yaourt175:{label:"175g yaourt grec",kcal:100,prot:17,carbs:6,fat:0},
   yaourt200:{label:"200g yaourt grec",kcal:114,prot:19,carbs:7,fat:0},
+  fromCottage:{label:"175g fromage cottage 2%",kcal:147,prot:19,carbs:6,fat:4},
   amandes15:{label:"15g amandes",kcal:90,prot:4,carbs:2,fat:8},
   chia10b:{label:"10g graines de chia",kcal:49,prot:2,carbs:3,fat:3},
-  // Sans petit déj — nouveaux ingrédients
-  oeuf3solo:{label:"3 œufs entiers",kcal:210,prot:18,carbs:1,fat:15},
-  legumesComplet:{label:"Champignons, oignons, tomates, brocolis",kcal:51,prot:5,carbs:8,fat:0},
   pommeSmall:{label:"1 pomme",kcal:95,prot:0.5,carbs:25,fat:0},
 };
 
-function protIng(key,g){
+// ═══════════════════════════════════════════════
+// 7 DAY VARIANTS
+// ═══════════════════════════════════════════════
+const DAY_VARIANTS=[
+  {id:0,label:"Lun",emoji:"💪",theme:"Plan de base"},
+  {id:1,label:"Mar",emoji:"🥚",theme:"Version simple"},
+  {id:2,label:"Mer",emoji:"🥦",theme:"Légumes verts"},
+  {id:3,label:"Jeu",emoji:"🥣",theme:"Cream of Rice"},
+  {id:4,label:"Ven",emoji:"🐟",theme:"Thon le soir"},
+  {id:5,label:"Sam",emoji:"🍖",theme:"Classique"},
+  {id:6,label:"Dim",emoji:"🫒",theme:"Récupération"},
+];
+
+function getDayConfig(dayVariant){
+  switch(dayVariant){
+    case 1: return { // Mardi — Simple: blancs+œufs+cream of rice, sauce BBQ, pas d'avocat
+      matinItems:[ING.blancs150,ING.oeuf2,ING.creamRicePdj,ING.epices],
+      noAvocat:true,midiExtra:[ING.sauceBBQ],
+      collationItems:[ING.yaourt175,ING.pomme],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+    case 2: return { // Mercredi — Légumes verts
+      matinItems:[ING.blancs150,ING.oeuf2,ING.avoine40,ING.chia10,ING.pomme],
+      legumesOverride:ING.legumesVert,
+      collationItems:[ING.yaourt175,ING.chia10b,ING.pomme],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+    case 3: return { // Jeudi — Cream of Rice au PDJ + Rice Cakes pré-WO
+      matinItems:[ING.blancs150,ING.oeuf2,ING.creamRicePdj,ING.chia10,ING.pomme],
+      collationItems:[ING.yaourt175,ING.chia10b,ING.banane],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.riceCake2,ING.banane,ING.collagene,ING.epices],
+    };
+    case 4: return { // Vendredi — Collation soir = thon
+      matinItems:[ING.blancs150,ING.oeuf2,ING.avoine40,ING.chia10,ING.pomme],
+      collationItems:[ING.yaourt175,ING.chia10b,ING.pomme],
+      colSoirItems:[
+        {label:"1 canne de thon (~170g)",kcal:197,prot:44,carbs:0,fat:2},
+        {label:"Citron, poivre",kcal:0,prot:0,carbs:0,fat:0,note:true},
+        ING.amandes15,
+      ],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+    case 5: return { // Samedi — Identique Lundi
+      matinItems:[ING.blancs150,ING.oeuf2,ING.avoine40,ING.chia10,ING.pomme],
+      collationItems:[ING.yaourt175,ING.chia10b,ING.pomme],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+    case 6: return { // Dimanche — Récupération: plus graisses, moins glucides
+      matinItems:[ING.blancs100,ING.oeuf3,ING.avocatDemi,ING.chia10,ING.legumes],
+      collationItems:[ING.fromCottage,ING.chia10b,ING.pomme],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+    default: return { // Lundi — Plan de base
+      matinItems:[ING.blancs150,ING.oeuf2,ING.avoine40,ING.chia10,ING.pomme],
+      collationItems:[ING.yaourt175,ING.chia10b,ING.pomme],
+      colSoirItems:[ING.yaourt175,ING.amandes15],
+      preWOItems:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
+    };
+  }
+}
+
+function sumItems(items){
+  return {
+    kcal:Math.round(items.reduce((s,i)=>s+(i.kcal||0),0)),
+    prot:Math.round(items.reduce((s,i)=>s+(i.prot||0),0)*10)/10,
+    carbs:Math.round(items.reduce((s,i)=>s+(i.carbs||0),0)*10)/10,
+    fat:Math.round(items.reduce((s,i)=>s+(i.fat||0),0)*10)/10,
+  };
+}
+
+function buildMealPlan(isSport,proteinKey="poulet",carbKey="riz",skipBreakfast=false,dayVariant=0){
+  const cfg=getDayConfig(dayVariant);
+  const pv=PROTEIN_VARIANTS[proteinKey]||PROTEIN_VARIANTS.poulet;
+  const cv=CARB_VARIANTS[carbKey]||CARB_VARIANTS.riz;
+
+  const matinItems=cfg.matinItems;
+  const legumesMain=cfg.legumesOverride||ING.legumes;
+  const colItems=cfg.collationItems;
+  const colSoirItems=cfg.colSoirItems;
+  const preWOItems=cfg.preWOItems;
+
+  // ─── SPORT + PETIT DÉJ ───────────────────────
+  if(isSport&&!skipBreakfast){
+    const midiProt=protIng(proteinKey,170);
+    const midiExtras=cfg.noAvocat
+      ?[ING.blancs150,ING.huileOlive,legumesMain,...(cfg.midiExtra||[])]
+      :[ING.blancs150,ING.avocatDemi,ING.huileOlive,legumesMain];
+    const midiItems=[...midiProt,...midiExtras];
+    const postProt=protIng(proteinKey,proteinKey==="thon"?170:200);
+    const postItems=[...postProt,...carbIng(carbKey,false),ING.petitsPois,ING.sauceTomate];
+    return [
+      {id:"matin",label:"Repas 1 — Matin",time:"08:00",emoji:"🌅",...sumItems(matinItems),items:matinItems},
+      {id:"midi",label:"Repas 2 — Midi",time:"12:00",emoji:"☀️",
+        ...sumItems(midiItems),proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,items:midiItems},
+      {id:"preworkout",label:"Pré-Workout",time:"18:30",emoji:"⚡",...sumItems(preWOItems),items:preWOItems},
+      {id:"postworkout",label:"Post-Workout / Souper",time:"23:00",emoji:"💪",
+        ...sumItems(postItems),proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,
+        carbKey,carbColor:cv.color,carbEmoji:cv.emoji,carbLabel:cv.label,items:postItems},
+      {id:"collation_soir",label:"Collation Soir",time:"00:30",emoji:"🌙",...sumItems(colSoirItems),items:colSoirItems},
+    ];
+  }
+
+  // ─── SPORT + SANS PETIT DÉJ ──────────────────
+  if(isSport&&skipBreakfast){
+    const midiProt=protIng(proteinKey,200);
+    const midiExtras=cfg.noAvocat
+      ?[ING.oeuf3,ING.huileOlive,legumesMain,...(cfg.midiExtra||[])]
+      :[ING.oeuf3,ING.avocatDemi,ING.huileOlive,legumesMain];
+    const midiItems=[...midiProt,...midiExtras];
+    const postProt=protIng(proteinKey,proteinKey==="thon"?170:200);
+    const postItems=[...postProt,...carbIng(carbKey,true),ING.petitsPois,ING.sauceTomate];
+    return [
+      {id:"midi",label:"Repas 1 — Midi (rupture jeûne)",time:"12:00",emoji:"☀️",
+        ...sumItems(midiItems),proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,items:midiItems,
+        note:"🔓 Rupture du jeûne — protéines + graisses, pas de glucides complexes"},
+      {id:"collation",label:"Collation",time:"15:30",emoji:"🍎",
+        ...sumItems(colItems),items:colItems,note:"🍎 Maintien protéique + énergie avant le pré-workout"},
+      {id:"preworkout",label:"Pré-Workout",time:"18:30",emoji:"⚡",
+        ...sumItems(preWOItems),items:preWOItems,note:"⚡ Glycogène plein — zéro lipides"},
+      {id:"postworkout",label:"Post-Workout / Souper",time:"23:00",emoji:"💪",
+        ...sumItems(postItems),proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,
+        carbKey,carbColor:cv.color,carbEmoji:cv.emoji,carbLabel:cv.label,items:postItems,
+        note:"💪 Fenêtre anabolique — glucides + protéines"},
+      {id:"collation_soir",label:"Collation Soir",time:"00:30",emoji:"🌙",
+        ...sumItems([ING.yaourt200,ING.amandes15]),items:[ING.yaourt200,ING.amandes15],
+        note:"🌙 Caséine lente pour nourrir les muscles pendant le sommeil"},
+    ];
+  }
+
+  // ─── REPOS + PETIT DÉJ ───────────────────────
+  if(!isSport&&!skipBreakfast){
+    const pvP=PROTEIN_VARIANTS.poulet;
+    const pvV=PROTEIN_VARIANTS.veau;
+    const midiItems=[
+      {label:"200g poitrine de poulet (cru)",kcal:220,prot:44,carbs:0,fat:4},
+      {label:"Épices : ail, paprika",kcal:0,prot:0,carbs:0,fat:0,note:true},
+      ING.huileOlive,legumesMain,
+      ...(cfg.noAvocat?[ING.sauceBBQ]:[]),
+    ];
+    const souperItems=[
+      {label:"170g veau haché (cru)",kcal:357,prot:32,carbs:0,fat:22},
+      {label:"Oignons, ail",kcal:0,prot:0,carbs:0,fat:0,note:true},
+      {label:"150g patate douce",kcal:129,prot:2,carbs:30,fat:0},
+      legumesMain,ING.huileOlive,
+    ];
+    return [
+      {id:"matin",label:"Repas 1 — Matin",time:"08:00",emoji:"🌅",...sumItems(matinItems),items:matinItems},
+      {id:"midi",label:"Repas 2 — Midi",time:"12:30",emoji:"☀️",
+        ...sumItems(midiItems),proteinKey:"poulet",proteinColor:pvP.color,proteinEmoji:pvP.emoji,proteinLabel:pvP.label,items:midiItems},
+      {id:"collation",label:"Collation",time:"15:30",emoji:"🍎",...sumItems(colItems),items:colItems},
+      {id:"souper",label:"Souper",time:"18:30",emoji:"🌙",
+        ...sumItems(souperItems),proteinKey:"veau",proteinColor:pvV.color,proteinEmoji:pvV.emoji,proteinLabel:pvV.label,items:souperItems},
+      {id:"collation_soir",label:"Collation Soir",time:"21:00",emoji:"🐟",...sumItems(colSoirItems),items:colSoirItems},
+    ];
+  }
+
+  // ─── REPOS + SANS PETIT DÉJ ──────────────────
+  const pvP2=PROTEIN_VARIANTS.poulet;
+  const pvV2=PROTEIN_VARIANTS.veau;
+  const reposMidiItems=[
+    {label:"200g poitrine de poulet (cru)",kcal:220,prot:44,carbs:0,fat:4},
+    {label:"Épices : ail, paprika",kcal:0,prot:0,carbs:0,fat:0,note:true},
+    ING.oeuf3,
+    cfg.noAvocat?ING.huileOlive:ING.avocatDemi,
+    ING.huileOlive,legumesMain,
+    ...(cfg.noAvocat?[ING.sauceBBQ]:[]),
+  ];
+  const reposSouper=[
+    {label:"170g veau haché (cru)",kcal:357,prot:32,carbs:0,fat:22},
+    {label:"Oignons, ail",kcal:0,prot:0,carbs:0,fat:0,note:true},
+    {label:"150g patate douce",kcal:129,prot:2,carbs:30,fat:0},
+    legumesMain,ING.huileOlive,
+  ];
+  return [
+    {id:"midi",label:"Repas 1 — Midi (rupture jeûne)",time:"12:00",emoji:"☀️",
+      ...sumItems(reposMidiItems),proteinKey:"poulet",proteinColor:pvP2.color,proteinEmoji:pvP2.emoji,proteinLabel:pvP2.label,
+      items:reposMidiItems,note:"🔓 Rupture du jeûne — choline des jaunes pour le foie"},
+    {id:"collation",label:"Collation",time:"15:30",emoji:"🍎",
+      ...sumItems(colItems),items:colItems,note:"🍎 Seuls glucides de l'après-midi"},
+    {id:"souper",label:"Souper",time:"18:30",emoji:"🌙",
+      ...sumItems(reposSouper),proteinKey:"veau",proteinColor:pvV2.color,proteinEmoji:pvV2.emoji,proteinLabel:pvV2.label,
+      items:reposSouper,note:"🥔 Seul repas glucides complexes — sérotonine → mélatonine"},
+    {id:"collation_soir",label:"Collation Soir",time:"21:00",emoji:"🐟",
+      ...sumItems(colSoirItems),items:colSoirItems,note:"🐟 EPA/DHA nocturnes — récupération musculaire"},
+  ];
+}
   const pv=PROTEIN_VARIANTS[key]||PROTEIN_VARIANTS.poulet;
-  const kcal=Math.round(g*pv.kcalPer100/100),prot=Math.round(g*pv.protPer100/100);
-  const fat=key==="boeuf"?Math.round(g*0.05):key==="thon"?Math.round(g*0.009):Math.round(g*0.018);
-  const label=key==="thon"&&g===170?"1 canne de thon (~170g égoutté)":key==="thon"?`${g}g thon`:key==="boeuf"?`${g}g bœuf haché 5%`:`${g}g poitrine de poulet`;
-  const sub=key==="poulet"?"Épices : ail, paprika, coriandre":key==="boeuf"?"Oignons, ail, sauce tomate":"Citron, poivre, coriandre";
+  const kcal=Math.round(g*pv.kcalPer100/100);
+  const prot=Math.round(g*pv.protPer100/100);
+  const fat=Math.round(g*(pv.fatPer100||2)/100);
+  const label=key==="thon"&&g===170?"1 canne de thon (~170g égoutté)"
+    :key==="thon"?`${g}g thon`
+    :key==="veau"?`${g}g veau haché (cru)`
+    :key==="boeuf"?`${g}g bœuf haché 15% (cru)`
+    :`${g}g poitrine de poulet (cru)`;
+  const sub=key==="poulet"?"Épices : ail, paprika, coriandre"
+    :key==="veau"||key==="boeuf"?"Oignons, ail, sauce tomate"
+    :"Citron, poivre, coriandre";
   return [{label,kcal,prot,carbs:0,fat},{label:sub,kcal:0,prot:0,carbs:0,fat:0,note:true}];
 }
 function carbIng(key,big=false){
@@ -587,17 +895,70 @@ function buildMealPlan(isSport,proteinKey="poulet",carbKey="riz",skipBreakfast=f
 // ═══════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════
-function calcFoodMacros(food,amount,unit){
+
+// cookRatio logic:
+// For MEAT (ratio < 1): 100g raw → ratio*100g cooked, same macros
+//   → if user weighs COOKED: divide by ratio to get raw equivalent
+// For CARBS (ratio > 1): 100g dry → ratio*100g cooked, same macros
+//   → if user weighs COOKED: divide by ratio to get dry equivalent
+// In both cases: macros/100g are always stored for the RAW/DRY state
+// When isCooked=true, we convert the entered weight back to raw equivalent before calculating
+
+function calcFoodMacros(food, amount, unit, isCooked=false){
   const a=parseFloat(amount)||0;
   if(!a) return {kcal:0,prot:0,carbs:0,fat:0};
-  if(unit==="qty"&&food.perQty) return {kcal:Math.round(food.qtyKcal*a),prot:+(food.qtyProt*a).toFixed(1),carbs:+(food.qtyCarbs*a).toFixed(1),fat:+(food.qtyFat*a).toFixed(1)};
+  if(unit==="qty"&&food.perQty) return {
+    kcal:Math.round(food.qtyKcal*a),
+    prot:+(food.qtyProt*a).toFixed(1),
+    carbs:+(food.qtyCarbs*a).toFixed(1),
+    fat:+(food.qtyFat*a).toFixed(1)
+  };
   let g=a;
   if(unit==="qty") g=a*(food.qtyG||100);
   else if(unit==="half") g=a*(food.halfG||75);
   else if(unit==="can") g=a*(food.canG||170);
   else if(unit==="tsp") g=a*(food.tspG||5);
   else if(unit==="scoop") g=a*(food.scoopG||30);
-  return {kcal:Math.round(g*food.kcal/100),prot:+(g*food.prot/100).toFixed(1),carbs:+(g*food.carbs/100).toFixed(1),fat:+(g*food.fat/100).toFixed(1)};
+  // Convert cooked weight back to raw equivalent for macro calculation
+  // Macros per 100g are always based on raw/dry state
+  if(isCooked && food.cookRatio){
+    g = g / food.cookRatio;
+  }
+  return {
+    kcal:Math.round(g*food.kcal/100),
+    prot:+(g*food.prot/100).toFixed(1),
+    carbs:+(g*food.carbs/100).toFixed(1),
+    fat:+(g*food.fat/100).toFixed(1)
+  };
+}
+
+// Label for cook state
+function cookStateLabel(food, isCooked){
+  if(!food?.cookRatio) return null;
+  if(food.cookRatio < 1){
+    // Meat/fish: loses weight when cooked
+    return isCooked ? "cuit" : "cru";
+  } else {
+    // Carbs: gains weight when cooked (absorbs water)
+    return isCooked ? "cuit" : "sec";
+  }
+}
+
+// Equivalent weight label shown to user
+function cookEquivLabel(food, amount, isCooked){
+  if(!food?.cookRatio || !parseFloat(amount)) return null;
+  const a=parseFloat(amount);
+  if(isCooked){
+    const rawEquiv = Math.round(a / food.cookRatio);
+    return food.cookRatio < 1
+      ? `≈ ${rawEquiv}g cru`
+      : `≈ ${rawEquiv}g sec`;
+  } else {
+    const cookedEquiv = Math.round(a * food.cookRatio);
+    return food.cookRatio < 1
+      ? `≈ ${cookedEquiv}g cuit`
+      : `≈ ${cookedEquiv}g cuit`;
+  }
 }
 function unitLabel(unit,food){
   if(unit==="qty") return food?.name?.includes("Œuf")||food?.name?.includes("œuf")?"œuf(s)":"unité(s)";
@@ -607,7 +968,7 @@ function unitLabel(unit,food){
   if(unit==="scoop") return "scoop";
   return unit;
 }
-function emptyLog(){return{isSportDay:true,proteinKey:"poulet",carbKey:"riz",skipBreakfast:false,meals:{},supplements:{},water:0,exercises:[],cardioLog:[],trackingLog:{}};}
+function emptyLog(){return{isSportDay:true,proteinKey:"poulet",carbKey:"riz",skipBreakfast:false,dayVariant:new Date().getDay()===0?6:new Date().getDay()-1,meals:{},supplements:{},water:0,exercises:[],cardioLog:[],trackingLog:{}};}
 
 // ═══════════════════════════════════════════════
 // REST TIMER — Persistent (survives lock screen)
@@ -1260,18 +1621,46 @@ function NutritionPage({log,selectedDay,updateLog,setShowPicker,mealPlan}){
   const isToday=selectedDay===todayKey();
   const isSport=log.isSportDay!==false;
   const skipBreakfast=log.skipBreakfast||false;
+  // Current day variant — default to today's weekday
+  const todayVariant=new Date().getDay()===0?6:new Date().getDay()-1;
+  const dayVariant=log.dayVariant??todayVariant;
   const done=mealPlan.filter(m=>log.meals?.[m.id]);
   const totalK=done.reduce((s,m)=>s+m.kcal,0);
   const maxK=mealPlan.reduce((s,m)=>s+m.kcal,0);
   const totalP=done.reduce((s,m)=>s+m.prot,0);
   const totalC=done.reduce((s,m)=>s+m.carbs,0);
   const totalF=done.reduce((s,m)=>s+(m.fat||0),0);
+  const currentVariant=DAY_VARIANTS[dayVariant]||DAY_VARIANTS[0];
 
   return(
     <div style={{padding:"20px 20px 0"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <h2 style={{fontWeight:800,fontSize:22,margin:0}}>📋 Plan Nutrition</h2>
         <button onClick={()=>setShowPicker(true)} style={{background:"var(--glass)",border:"1px solid var(--border2)",borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,color:"var(--text2)",cursor:"pointer",fontFamily:"var(--font)"}}>📅 {isToday?"Aujourd'hui":formatDate(selectedDay)} ▾</button>
+      </div>
+
+      {/* Day variant horizontal scroller */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,fontWeight:700,color:"var(--text3)",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
+          Plan de la journée — <span style={{color:"var(--green)"}}>{currentVariant.emoji} {currentVariant.theme}</span>
+        </div>
+        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
+          {DAY_VARIANTS.map(v=>{
+            const isActive=dayVariant===v.id;
+            const isToday2=v.id===todayVariant;
+            return(
+              <button key={v.id} onClick={()=>updateLog(selectedDay,l=>({...l,dayVariant:v.id,meals:{}}))}
+                style={{flexShrink:0,padding:"8px 12px",borderRadius:14,border:`2px solid ${isActive?"var(--green)":isToday2?"rgba(168,255,120,0.3)":"var(--border)"}`,
+                  background:isActive?"rgba(168,255,120,0.12)":isToday2?"rgba(168,255,120,0.05)":"var(--glass)",
+                  cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.15s",textAlign:"center",minWidth:52}}>
+                <div style={{fontSize:15,marginBottom:2}}>{v.emoji}</div>
+                <div style={{fontSize:11,fontWeight:700,color:isActive?"var(--green)":isToday2?"rgba(168,255,120,0.7)":"var(--text3)"}}>{v.label}</div>
+                {isToday2&&!isActive&&<div style={{fontSize:8,color:"rgba(168,255,120,0.5)",marginTop:1}}>auj.</div>}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{fontSize:10,color:"var(--text3)",marginTop:4}}>⚠️ Changer le jour réinitialise les coches</div>
       </div>
 
       {/* Sport / Repos toggle */}
@@ -1416,6 +1805,7 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
   const [pendingFood,setPendingFood]=useState(null);
   const [amount,setAmount]=useState("");
   const [unit,setUnit]=useState("");
+  const [isCooked,setIsCooked]=useState(false); // cru/cuit toggle
   const [showOverride,setShowOverride]=useState(false);
   const [manualEntry,setManualEntry]=useState({name:"",kcal:"",prot:"",carbs:"",fat:""});
   const searchRef=useRef(null);
@@ -1460,7 +1850,9 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
   const filtered=sq?allFoods.filter(f=>f.name.toLowerCase().includes(sq)||f.cat.toLowerCase().includes(sq)):[];
 
   function selectFood(food){
-    setPendingFood(food);setUnit(food.defaultUnit);
+    setPendingFood(food);
+    setUnit(food.defaultUnit);
+    setIsCooked(food.defaultCooked||false);
     if(["qty","half","can","tsp","scoop"].includes(food.defaultUnit)) setAmount("1");
     else if(food.id==="blancs_oeuf") setAmount("150");
     else setAmount("100");
@@ -1468,11 +1860,13 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
   }
   function addItem(){
     if(!pendingFood||!amount||!activeSlot) return;
-    const macros=calcFoodMacros(pendingFood,amount,unit);
+    const macros=calcFoodMacros(pendingFood,amount,unit,isCooked);
     if(macros.kcal===0&&macros.prot===0) return;
-    const entry={id:Date.now(),foodId:pendingFood.id,name:pendingFood.name,amount:parseFloat(amount),unit,...macros};
+    const stateLabel=pendingFood.cookRatio?` (${cookStateLabel(pendingFood,isCooked)})`:"";
+    const entry={id:Date.now(),foodId:pendingFood.id,name:pendingFood.name+stateLabel,
+      amount:parseFloat(amount),unit,isCooked,...macros};
     updateLog(selectedDay,l=>{const tl=l.trackingLog||{};return{...l,trackingLog:{...tl,[activeSlot]:[...(tl[activeSlot]||[]),entry]}};});
-    setPendingFood(null);setAmount("");
+    setPendingFood(null);setAmount("");setIsCooked(false);
     if(searchRef.current) searchRef.current.focus();
   }
   function addManualItem(){
@@ -1488,7 +1882,8 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
   function removeItem(slotId,itemId){
     updateLog(selectedDay,l=>({...l,trackingLog:{...l.trackingLog,[slotId]:(l.trackingLog?.[slotId]||[]).filter(it=>it.id!==itemId)}}));
   }
-  const preview=pendingFood&&parseFloat(amount)>0?calcFoodMacros(pendingFood,parseFloat(amount),unit):null;
+  const preview=pendingFood&&parseFloat(amount)>0?calcFoodMacros(pendingFood,parseFloat(amount),unit,isCooked):null;
+  const equivLabel=pendingFood&&parseFloat(amount)>0?cookEquivLabel(pendingFood,amount,isCooked):null;
 
   // ── Slot detail view ──
   if(activeSlot){
@@ -1572,6 +1967,24 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
               <span style={{fontWeight:700,fontSize:13}}>{pendingFood.name}</span>
               <button onClick={()=>setPendingFood(null)} style={{background:"none",border:"none",color:"var(--text3)",fontSize:18,cursor:"pointer"}}>✕</button>
             </div>
+            {/* Cru / Cuit toggle — only for foods with cookRatio */}
+            {pendingFood.cookRatio&&(
+              <div style={{display:"flex",gap:6,marginBottom:10,background:"rgba(255,255,255,0.04)",borderRadius:12,padding:3}}>
+                {[false,true].map(cooked=>{
+                  const lbl=cooked
+                    ?(pendingFood.cookRatio<1?"🍳 Cuit":"🍚 Cuit")
+                    :(pendingFood.cookRatio<1?"🥩 Cru":"🌾 Sec");
+                  return(
+                    <button key={String(cooked)} onClick={()=>setIsCooked(cooked)}
+                      style={{flex:1,padding:"7px",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,transition:"all 0.2s",fontFamily:"var(--font)",
+                        background:isCooked===cooked?"var(--green)":"transparent",
+                        color:isCooked===cooked?"#080b14":"var(--text2)"}}>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Quantité" autoFocus
                 style={{flex:1,background:"rgba(255,255,255,0.07)",border:"1px solid var(--border2)",borderRadius:12,padding:"10px 14px",color:"var(--text)",fontSize:16,outline:"none",fontFamily:"var(--font)"}}/>
@@ -1582,6 +1995,12 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
                 ))}
               </select>
             </div>
+            {/* Equivalent weight hint */}
+            {equivLabel&&(
+              <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"var(--mono)",textAlign:"center"}}>
+                {amount}g {cookStateLabel(pendingFood,isCooked)} → {equivLabel}
+              </div>
+            )}
             {preview&&preview.kcal>0&&(
               <div style={{background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
                 <MacroBadge kcal={preview.kcal} prot={preview.prot} carbs={preview.carbs} fat={preview.fat}/>
@@ -2831,8 +3250,8 @@ function App(){
   const todayLog=getLog(todayKey());
   const selLog=getLog(selectedDay);
   // useMemo must be called unconditionally (Rules of Hooks) — placed here before any conditional return
-  const selPlan=useMemo(()=>buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz",selLog.skipBreakfast||false),
-    [selLog.isSportDay,selLog.proteinKey,selLog.carbKey,selLog.skipBreakfast]);
+  const selPlan=useMemo(()=>buildMealPlan(selLog.isSportDay!==false,selLog.proteinKey||"poulet",selLog.carbKey||"riz",selLog.skipBreakfast||false,selLog.dayVariant??( new Date().getDay()===0?6:new Date().getDay()-1)),
+    [selLog.isSportDay,selLog.proteinKey,selLog.carbKey,selLog.skipBreakfast,selLog.dayVariant]);
 
   if(loading) return(
     <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font)"}}>
