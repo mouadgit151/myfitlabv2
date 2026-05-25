@@ -753,6 +753,7 @@ function buildMealPlan(isSport,proteinKey="poulet",carbKey="riz",skipBreakfast=f
       ...sumItems(colSoirItems),items:colSoirItems,note:"🐟 EPA/DHA nocturnes — récupération musculaire"},
   ];
 }
+function protIng(key,g){
   const pv=PROTEIN_VARIANTS[key]||PROTEIN_VARIANTS.poulet;
   const kcal=Math.round(g*pv.kcalPer100/100);
   const prot=Math.round(g*pv.protPer100/100);
@@ -775,121 +776,6 @@ function carbIng(key,big=false){
   if(key==="patate_douce") return [{label:"150g patate douce",kcal:129,prot:2,carbs:30,fat:0}];
   if(key==="patate") return [{label:"200g pomme de terre (crue)",kcal:154,prot:4,carbs:34,fat:0}];
   return [{label:`${qty}g riz blanc (sec)`,kcal:Math.round(qty*3.6),prot:Math.round(qty*0.07),carbs:Math.round(qty*0.8),fat:1}];
-}
-
-function buildMealPlan(isSport,proteinKey="poulet",carbKey="riz",skipBreakfast=false){
-  // ─── SPORT + PETIT DÉJ (original) ───────────────────
-  if(isSport&&!skipBreakfast){
-    const pv=PROTEIN_VARIANTS[proteinKey]||PROTEIN_VARIANTS.poulet;
-    const cv=CARB_VARIANTS[carbKey]||CARB_VARIANTS.riz;
-    const midiProt=protIng(proteinKey,170);
-    const postProt=protIng(proteinKey,proteinKey==="thon"?170:200);
-    const postCarb=carbIng(carbKey,false);
-    const midiItems=[...midiProt,ING.blancs150,ING.avocatDemi,ING.huileOlive,ING.legumes];
-    const postItems=[...postProt,...postCarb,ING.petitsPois,ING.sauceTomate];
-    return [
-      {id:"matin",label:"Repas 1 — Matin",time:"08:00",emoji:"🌅",kcal:517,prot:36,carbs:52,fat:15,
-        items:[ING.blancs150,ING.oeuf2,ING.avoine40,ING.chia10,ING.pomme]},
-      {id:"midi",label:"Repas 2 — Midi",time:"12:00",emoji:"☀️",
-        kcal:midiItems.reduce((s,i)=>s+i.kcal,0),prot:midiItems.reduce((s,i)=>s+i.prot,0),
-        carbs:midiItems.reduce((s,i)=>s+i.carbs,0),fat:midiItems.reduce((s,i)=>s+i.fat,0),
-        proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,items:midiItems},
-      {id:"preworkout",label:"Pré-Workout",time:"17:30",emoji:"⚡",kcal:267,prot:12,carbs:55,fat:0,
-        items:[ING.creamRice35,ING.banane,ING.collagene,ING.epices]},
-      {id:"postworkout",label:"Post-Workout / Souper",time:"21:00",emoji:"💪",
-        kcal:postItems.reduce((s,i)=>s+i.kcal,0),prot:postItems.reduce((s,i)=>s+i.prot,0),
-        carbs:postItems.reduce((s,i)=>s+i.carbs,0),fat:postItems.reduce((s,i)=>s+i.fat,0),
-        proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,
-        carbKey,carbColor:cv.color,carbEmoji:cv.emoji,carbLabel:cv.label,items:postItems},
-      {id:"collation_soir",label:"Collation Soir",time:"22:30",emoji:"🌙",kcal:190,prot:21,carbs:8,fat:12,
-        items:[ING.yaourt175,ING.amandes15]},
-    ];
-  }
-
-  // ─── SPORT + SANS PETIT DÉJ ──────────────────────────
-  if(isSport&&skipBreakfast){
-    const pv=PROTEIN_VARIANTS[proteinKey]||PROTEIN_VARIANTS.poulet;
-    const cv=CARB_VARIANTS[carbKey]||CARB_VARIANTS.riz;
-    // Midi: protéine augmentée à 200g + 3 oeufs + avocat + légumes (rupture de jeûne)
-    const midiProt=protIng(proteinKey,200);
-    const midiItems=[...midiProt,ING.oeuf3,ING.avocatDemi,ING.huileOlive,ING.legumesComplet];
-    // Post: portion glucides légèrement augmentée (90-100g)
-    const postProt=protIng(proteinKey,proteinKey==="thon"?170:200);
-    const postCarb=carbIng(carbKey,true);
-    const postItems=[...postProt,...postCarb,ING.petitsPois,ING.sauceTomate];
-    // Collation 15h: yaourt + chia + pomme (remplace le matin)
-    const colItems=[ING.yaourt175,ING.chia10b,ING.pommeSmall,ING.amandes15];
-    return [
-      {id:"midi",label:"Repas 1 — Midi (rupture jeûne)",time:"12:00",emoji:"☀️",
-        kcal:midiItems.reduce((s,i)=>s+i.kcal,0),prot:midiItems.reduce((s,i)=>s+i.prot,0),
-        carbs:midiItems.reduce((s,i)=>s+i.carbs,0),fat:midiItems.reduce((s,i)=>s+i.fat,0),
-        proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,items:midiItems,
-        note:"🔓 Rupture du jeûne — protéines + graisses, pas de glucides complexes"},
-      {id:"collation",label:"Collation",time:"15:00",emoji:"🍎",
-        kcal:colItems.reduce((s,i)=>s+i.kcal,0),prot:colItems.reduce((s,i)=>s+i.prot,0),
-        carbs:colItems.reduce((s,i)=>s+i.carbs,0),fat:colItems.reduce((s,i)=>s+i.fat,0),
-        items:colItems,
-        note:"🍎 Maintien protéique + énergie pour tenir jusqu'au pré-workout"},
-      {id:"preworkout",label:"Pré-Workout",time:"17:30",emoji:"⚡",kcal:267,prot:12,carbs:55,fat:0,
-        items:[ING.creamRice35,ING.banane,ING.collagene,ING.epices],
-        note:"⚡ Glycogène plein avant la séance — zéro lipides pour digestion rapide"},
-      {id:"postworkout",label:"Post-Workout / Souper",time:"21:00",emoji:"💪",
-        kcal:postItems.reduce((s,i)=>s+i.kcal,0),prot:postItems.reduce((s,i)=>s+i.prot,0),
-        carbs:postItems.reduce((s,i)=>s+i.carbs,0),fat:postItems.reduce((s,i)=>s+i.fat,0),
-        proteinKey,proteinColor:pv.color,proteinEmoji:pv.emoji,proteinLabel:pv.label,
-        carbKey,carbColor:cv.color,carbEmoji:cv.emoji,carbLabel:cv.label,items:postItems,
-        note:"💪 Fenêtre anabolique — glucides + protéines pour reconstruction musculaire"},
-      {id:"collation_soir",label:"Collation Soir",time:"22:30",emoji:"🌙",kcal:214,prot:23,carbs:7,fat:12,
-        items:[ING.yaourt200,ING.amandes15],
-        note:"🌙 Caséine lente pour nourrir les muscles 7-8h pendant le sommeil"},
-    ];
-  }
-
-  // ─── REPOS + PETIT DÉJ (original) ────────────────────
-  if(!isSport&&!skipBreakfast){
-    const pvP=PROTEIN_VARIANTS.poulet,pvB=PROTEIN_VARIANTS.boeuf;
-    return [
-      {id:"matin",label:"Repas 1 — Matin",time:"08:00",emoji:"🌅",kcal:451,prot:37,carbs:12,fat:28,
-        items:[ING.blancs150,ING.oeuf3,ING.avocatDemi,ING.legumes]},
-      {id:"midi",label:"Repas 2 — Midi",time:"12:30",emoji:"☀️",kcal:302,prot:46,carbs:8,fat:7,
-        proteinKey:"poulet",proteinColor:pvP.color,proteinEmoji:pvP.emoji,proteinLabel:pvP.label,
-        items:[{label:"200g poitrine de poulet",kcal:220,prot:44,carbs:0,fat:4},{label:"Épices : ail, paprika",kcal:0,prot:0,carbs:0,fat:0,note:true},ING.huileOlive,ING.legumesBroc]},
-      {id:"collation",label:"Collation",time:"15:30",emoji:"🍎",kcal:276,prot:19,carbs:35,fat:7,
-        items:[ING.yaourt175,ING.chia10b,ING.pomme]},
-      {id:"souper",label:"Souper",time:"18:30",emoji:"🌙",kcal:474,prot:39,carbs:43,fat:20,
-        proteinKey:"boeuf",proteinColor:pvB.color,proteinEmoji:pvB.emoji,proteinLabel:pvB.label,
-        items:[{label:"170g bœuf haché 5%",kcal:238,prot:34,carbs:0,fat:9},{label:"Oignons, ail",kcal:0,prot:0,carbs:0,fat:0,note:true},{label:"150g patate douce",kcal:129,prot:2,carbs:30,fat:0},ING.legumesSimp,ING.huileOlive]},
-      {id:"collation_soir",label:"Collation Soir",time:"21:00",emoji:"🐟",kcal:287,prot:48,carbs:3,fat:10,
-        items:[{label:"1 canne de thon (~170g)",kcal:197,prot:44,carbs:0,fat:2},{label:"Citron, poivre",kcal:0,prot:0,carbs:0,fat:0,note:true},ING.amandes15]},
-    ];
-  }
-
-  // ─── REPOS + SANS PETIT DÉJ ──────────────────────────
-  const pvP=PROTEIN_VARIANTS.poulet,pvB=PROTEIN_VARIANTS.boeuf;
-  // Midi: rupture du jeûne, protéines max + graisses, zéro glucides complexes
-  const reposMidiItems=[
-    {label:"200g poitrine de poulet",kcal:220,prot:44,carbs:0,fat:4},
-    {label:"Épices : ail, paprika",kcal:0,prot:0,carbs:0,fat:0,note:true},
-    ING.oeuf3,ING.avocatDemi,ING.huileOlive,ING.legumesComplet
-  ];
-  return [
-    {id:"midi",label:"Repas 1 — Midi (rupture jeûne)",time:"12:00",emoji:"☀️",
-      kcal:reposMidiItems.reduce((s,i)=>s+i.kcal,0),prot:reposMidiItems.reduce((s,i)=>s+i.prot,0),
-      carbs:reposMidiItems.reduce((s,i)=>s+i.carbs,0),fat:reposMidiItems.reduce((s,i)=>s+i.fat,0),
-      proteinKey:"poulet",proteinColor:pvP.color,proteinEmoji:pvP.emoji,proteinLabel:pvP.label,
-      items:reposMidiItems,
-      note:"🔓 Rupture du jeûne — choline des jaunes pour le foie, graisses pour les hormones"},
-    {id:"collation",label:"Collation",time:"15:30",emoji:"🍎",kcal:276,prot:19,carbs:35,fat:7,
-      items:[ING.yaourt175,ING.chia10b,ING.pomme],
-      note:"🍎 Seuls glucides de l'après-midi — fructose pour le cerveau, caséine pour les muscles"},
-    {id:"souper",label:"Souper",time:"18:30",emoji:"🌙",kcal:474,prot:39,carbs:43,fat:20,
-      proteinKey:"boeuf",proteinColor:pvB.color,proteinEmoji:pvB.emoji,proteinLabel:pvB.label,
-      items:[{label:"170g bœuf haché 5%",kcal:238,prot:34,carbs:0,fat:9},{label:"Oignons, ail",kcal:0,prot:0,carbs:0,fat:0,note:true},{label:"150g patate douce",kcal:129,prot:2,carbs:30,fat:0},ING.legumesSimp,ING.huileOlive],
-      note:"🥔 Seul repas glucides complexes — sérotonine → mélatonine pour le sommeil"},
-    {id:"collation_soir",label:"Collation Soir",time:"21:00",emoji:"🐟",kcal:287,prot:48,carbs:3,fat:10,
-      items:[{label:"1 canne de thon (~170g)",kcal:197,prot:44,carbs:0,fat:2},{label:"Citron, poivre",kcal:0,prot:0,carbs:0,fat:0,note:true},ING.amandes15],
-      note:"🐟 EPA/DHA anti-inflammatoires nocturnes — récupération musculaire pendant le sommeil"},
-  ];
 }
 
 // ═══════════════════════════════════════════════
