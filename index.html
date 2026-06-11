@@ -2087,6 +2087,80 @@ function TrackingPage({log,selectedDay,updateLog,setShowPicker,customFoods}){
 // ═══════════════════════════════════════════════
 // EXERCISE PAGE
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// EX HISTORY PANEL — proper component (no useState in IIFE)
+// Shows PR + last session sets detail, expandable
+// ═══════════════════════════════════════════════
+function ExHistoryPanel({exName,pr,last,dailyLogs,unit}){
+  const [open,setOpen]=useState(false);
+  if(!last) return null;
+
+  // Find the full exercise data from last session date
+  const lastFull=Object.values(dailyLogs)
+    .filter((_,idx)=>Object.keys(dailyLogs)[idx]===last.date)
+    .map(dl=>dl.exercises?.find(e=>e.name===exName))
+    .filter(Boolean)[0]
+    // Fallback: search all logs for matching date+name
+    ||Object.entries(dailyLogs)
+      .filter(([d])=>d===last.date)
+      .map(([,dl])=>dl.exercises?.find(e=>e.name===exName))
+      .filter(Boolean)[0];
+
+  return(
+    <div style={{marginBottom:10}}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{background:"rgba(0,229,255,0.06)",border:"1px solid rgba(0,229,255,0.2)",borderRadius:10,padding:"6px 12px",color:"var(--cyan)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"var(--font)",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+        <span>📊</span>
+        {pr>0&&<span style={{color:"var(--yellow)"}}>PR: {pr.toFixed(0)} lbs</span>}
+        <span style={{color:"var(--text3)"}}>· Dernière: {formatDate(last.date)} · max {(last.max_weight||0).toFixed(0)} lbs</span>
+        <span style={{color:"var(--text3)",marginLeft:"auto"}}>{open?"▲":"▼"}</span>
+      </button>
+      {open&&(
+        <div style={{background:"rgba(0,229,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",borderRadius:12,padding:"12px 14px",marginTop:6,animation:"fadeUp 0.15s ease"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--cyan)",marginBottom:8}}>
+            📅 Séance du {formatDate(last.date)}
+          </div>
+          {lastFull?.sets?.length>0?(
+            lastFull.sets.map((s,si)=>{
+              const w=parseFloat(s.weight)||0;
+              const wLbs=(lastFull.unit||"lbs")==="kg"?w*KG_TO_LBS:w;
+              const setType=s.type||"normal";
+              const typeColor=setType==="warmup"?"var(--cyan)":setType==="dropset"?"var(--orange)":"var(--text2)";
+              return(
+                <div key={si} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
+                  <span style={{color:"var(--text3)",fontSize:10,fontFamily:"var(--mono)",minWidth:22}}>S{si+1}</span>
+                  {setType!=="normal"&&(
+                    <span style={{fontSize:9,background:setType==="warmup"?"rgba(0,229,255,0.1)":"rgba(255,159,90,0.1)",border:`1px solid ${typeColor}44`,borderRadius:4,padding:"1px 6px",color:typeColor,fontWeight:700}}>
+                      {setType==="warmup"?"🔥 W":"↓ D"}
+                    </span>
+                  )}
+                  <span style={{fontSize:12,color:typeColor,fontFamily:"var(--mono)",fontWeight:600}}>
+                    {parseInt(s.reps)||0} reps
+                  </span>
+                  <span style={{color:"var(--text3)",fontSize:11}}>×</span>
+                  <span style={{fontSize:12,color:"var(--text)",fontFamily:"var(--mono)",fontWeight:700}}>
+                    {wLbs>0?`${wLbs.toFixed(0)} lbs`:"—"}
+                  </span>
+                  {(lastFull.unit||"lbs")==="kg"&&w>0&&(
+                    <span style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--mono)"}}>({w}kg)</span>
+                  )}
+                </div>
+              );
+            })
+          ):(
+            <div style={{fontSize:11,color:"var(--text3)"}}>Aucun détail disponible pour cette séance</div>
+          )}
+          {pr>0&&(
+            <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.06)",fontSize:11,color:"var(--yellow)",fontFamily:"var(--mono)",fontWeight:700}}>
+              🏆 PR all-time: {pr.toFixed(0)} lbs
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExStats,programs,setPrograms,profile,dailyLogs}){
   const [tab,setTab]=useState("workout"); // "workout" | "programs" | "cardio"
   const [exSearch,setExSearch]=useState("");
@@ -2426,39 +2500,14 @@ function ExercisePage({log,selectedDay,updateLog,setShowPicker,exStats,saveExSta
                         style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"var(--font)"}}/>
                     </div>
                   )}
-                  {/* Last session detail expandable */}
-                  {last&&(()=>{
-                    const lastFull=Object.entries(dailyLogs).filter(([d])=>d===last.date).map(([,dl])=>dl.exercises?.find(e=>e.name===ex.name)).filter(Boolean)[0];
-                    const [showHist,setShowHist]=React.useState(false);
-                    return(
-                      <div style={{marginBottom:10}}>
-                        <button onClick={()=>setShowHist(h=>!h)}
-                          style={{background:"rgba(0,229,255,0.06)",border:"1px solid rgba(0,229,255,0.2)",borderRadius:10,padding:"5px 12px",color:"var(--cyan)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"var(--font)",display:"flex",alignItems:"center",gap:6}}>
-                          📊
-                          {pr&&<span style={{color:"var(--yellow)"}}>PR: {pr.toFixed(0)} lbs</span>}
-                          <span style={{color:"var(--text3)"}}>· Dernière: {formatDate(last.date)} · {(last.max_weight||0).toFixed(0)} lbs</span>
-                          <span style={{color:"var(--text3)"}}>{showHist?"▲":"▼"}</span>
-                        </button>
-                        {showHist&&lastFull&&(
-                          <div style={{background:"rgba(0,229,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",borderRadius:12,padding:"10px 14px",marginTop:6}}>
-                            <div style={{fontSize:11,fontWeight:700,color:"var(--cyan)",marginBottom:6}}>Séance du {formatDate(last.date)}</div>
-                            {lastFull.sets?.map((s,si)=>{
-                              const w=parseFloat(s.weight)||0;
-                              const wLbs=(lastFull.unit||"lbs")==="kg"?w*KG_TO_LBS:w;
-                              const typeColor=s.type==="warmup"?"var(--cyan)":s.type==="dropset"?"var(--orange)":"var(--text2)";
-                              return(
-                                <div key={si} style={{fontSize:11,color:typeColor,fontFamily:"var(--mono)",marginBottom:2,display:"flex",gap:8,alignItems:"center"}}>
-                                  <span style={{color:"var(--text3)",minWidth:20}}>S{si+1}</span>
-                                  {s.type&&s.type!=="normal"&&<span style={{fontSize:9,background:s.type==="warmup"?"rgba(0,229,255,0.1)":"rgba(255,159,90,0.1)",borderRadius:4,padding:"1px 5px",color:typeColor}}>{s.type==="warmup"?"🔥W":"↓D"}</span>}
-                                  <span>{parseInt(s.reps)||0} reps × {wLbs>0?`${wLbs.toFixed(0)} lbs`:"—"}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {/* Last session detail — proper component, no useState in IIFE */}
+                  <ExHistoryPanel
+                    exName={ex.name}
+                    pr={pr}
+                    last={last}
+                    dailyLogs={dailyLogs}
+                    unit={unit}
+                  />
 
                   {/* Set rows */}
                   <div style={{display:"flex",gap:4,fontSize:9,color:"var(--text3)",fontWeight:700,marginBottom:8,marginTop:4,textTransform:"uppercase",letterSpacing:0.5,fontFamily:"var(--mono)"}}>
